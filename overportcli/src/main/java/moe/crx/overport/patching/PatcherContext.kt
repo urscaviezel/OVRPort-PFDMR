@@ -109,18 +109,21 @@ class PatcherContext(
         args: Map<String, List<String>>,
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
-        val librariesDir = VersionManager(patcherDirectory).getLibraries(overportVersion)
+        val orderedArgs = moe.crx.overport.pfdmr.StereoPatch.prepare(this, args)
+        val patches = orderedArgs.keys.mapNotNull { PatchStore.get(it) }
+        val needsConfig = patches.any { it.requiresOverportConfig }
+        val librariesDir = if (needsConfig) VersionManager(patcherDirectory).getLibraries(overportVersion)
+            else patcherDirectory.resolve("libraries/manifest-only").apply { mkdirs() }
 
         val executor = PatchExecutor(librariesDir, workingDir, apk())
 
-        val patches = args.keys.mapNotNull { PatchStore.get(it) }
 
         patches.forEachIndexed { index, patch ->
             callback(index, patch)
             patch.executor(executor, args[patch.name] ?: listOf())
         }
 
-        executor.selectConfig {
+        if (needsConfig) executor.selectConfig {
             patched = OverportPatchedInfo(
                 by = VersionManager.VERSION,
                 with = overportVersion,

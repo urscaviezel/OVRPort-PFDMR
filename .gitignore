@@ -22,3 +22,13 @@ composeApp/release/output-metadata.json
 *.salive
 workspace
 ignore
+
+# Local build inputs, test APKs and signing secrets
+.tools/
+dist/
+*.apk
+*.idsig
+*.keystore
+*.p12
+test-work/
+overportcli/src/main/resources/pfdmr/*/*.so

@@ -69,7 +69,7 @@ fun AppContent(
                     },
                     actions = {
                         val isUpdateAvailable =
-                            versionToUpdate?.name != null && versionToUpdate?.name != VersionManager.VERSION
+                            versionToUpdate?.tagName != null && versionToUpdate?.tagName != "v${VersionManager.EDITION_VERSION}"
                         FadeVisibility(isUpdateAvailable) {
                             FilledTonalButton(
                                 modifier = Modifier.padding(8.dp, 0.dp),

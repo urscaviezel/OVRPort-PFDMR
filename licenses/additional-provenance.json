@@ -1,0 +1,42 @@
+[
+  {
+    "file": "Kotlin-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/JetBrains/kotlin/v2.2.21/license/LICENSE.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "Kotlin-NOTICE.txt",
+    "url": "https://raw.githubusercontent.com/JetBrains/kotlin/v2.2.21/license/NOTICE.txt",
+    "sha256": "0b09a83d3ef7795c7dec65e815866597c066c53898f2852a76599b8f5552941a"
+  },
+  {
+    "file": "Compose-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/JetBrains/compose-multiplatform/v1.9.3/LICENSE.txt",
+    "sha256": "f9a85c61ba4fe8bacc300053b3384b5fc7d9f585a08dc7b9a465b7c0716c4f50"
+  },
+  {
+    "file": "Skiko-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/JetBrains/skiko/v0.9.22.2/LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  {
+    "file": "Skiko-NOTICE.txt",
+    "url": "https://raw.githubusercontent.com/JetBrains/skiko/v0.9.22.2/NOTICE",
+    "sha256": "35dd077c24768b53625101cfcc0ad853ae7e2abc08bd2a111a0267760d1406d8"
+  },
+  {
+    "file": "BouncyCastle-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/bcgit/bc-java/r1rv83/LICENSE.html",
+    "sha256": "edbbb10380b1271998b867a2e36b1cbee226e03d438726e1a91f80c5dde11849"
+  },
+  {
+    "file": "JSpecify-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/jspecify/jspecify/v1.0.0/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "JBR-API-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/JetBrains/JetBrainsRuntimeApi/v1.5.0/LICENSE",
+    "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+  }
+]

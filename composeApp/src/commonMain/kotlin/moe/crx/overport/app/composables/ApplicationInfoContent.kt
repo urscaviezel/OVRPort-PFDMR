@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.dp
 import moe.crx.overport.app.util.PatchLocalizer.localizedPatch
 import moe.crx.overport.patches.PATCH_REPLACE_ICON_LABEL
+import moe.crx.overport.patches.PATCH_PFDMR_OPENXR_PERMISSION
 import moe.crx.overport.patching.Patch
 import moe.crx.overport.patching.PatchStore
 import org.jetbrains.compose.resources.stringResource
@@ -44,6 +45,7 @@ fun ApplicationInfoContent(
         if (checked) {
             enabledPatches.remove(patch.name)
         } else {
+            if (patch == PATCH_PFDMR_OPENXR_PERMISSION) enabledPatches.clear()
             enabledPatches[patch.name] = listOf()
         }
     }

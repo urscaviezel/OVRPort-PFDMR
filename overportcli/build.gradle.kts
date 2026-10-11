@@ -8,7 +8,10 @@ plugins {
 }
 
 group = "moe.crx"
-version = "1.2.3"
+version = "0.1.0-beta.1"
+
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
+java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 
 dependencies {
     implementation(libs.android.tools.build)
@@ -20,6 +23,14 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.processResources {
+    doFirst {
+        check(file("src/main/resources/pfdmr/arm64-v8a/libopenxr_loader.so").isFile) {
+            "Build the stereo wrapper first: python native/build_native.py --ndk <NDK path>"
+        }
+    }
 }
 
 application {

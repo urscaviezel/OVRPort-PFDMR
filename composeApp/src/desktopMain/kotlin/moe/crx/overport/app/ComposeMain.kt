@@ -33,7 +33,7 @@ import java.io.*
 fun main(args: Array<String>) = application {
     Window(
         onCloseRequest = ::exitApplication,
-        title = "overport",
+        title = "OVRPort PFDMR Edition ${moe.crx.overport.versions.VersionManager.EDITION_VERSION}",
         icon = painterResource(Res.drawable.window_icon),
     ) {
         val dataDir = defaultWorkspace()

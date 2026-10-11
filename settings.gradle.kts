@@ -14,7 +14,7 @@ pluginManagement {
         gradlePluginPortal()
     }
     plugins {
-        kotlin("jvm") version "2.2.0"
+        kotlin("jvm") version "2.2.21"
         id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
     }
 }

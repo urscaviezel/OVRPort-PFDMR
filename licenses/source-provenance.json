@@ -1,0 +1,32 @@
+[
+  {
+    "file": "licenses/OpenXR-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/KhronosGroup/OpenXR-SDK/main/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "licenses/ARSCLib-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/REAndroid/ARSCLib/V1.4.0/LICENSE",
+    "sha256": "449e6720b1d610e781712ebcb4a188e0212127327d97e63dc0534ef2e895a3d1"
+  },
+  {
+    "file": "licenses/smali-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/JesusFreke/smali/v2.5.2/NOTICE",
+    "sha256": "e247d92c57251fc3e674b5366bafd40ed644bfc7c4a55172e464685a25622945"
+  },
+  {
+    "file": "ARSCLib-1.4.0-source.zip",
+    "url": "https://codeload.github.com/REAndroid/ARSCLib/zip/refs/tags/V1.4.0",
+    "sha256": "1bdbaa7977255e83e6d7a8ccc90b1472069f0d060af7ea11e282c8a339367a8d"
+  },
+  {
+    "file": "smali-2.5.2-source.zip",
+    "url": "https://codeload.github.com/JesusFreke/smali/zip/refs/tags/v2.5.2",
+    "sha256": "9daa91ee4ee0b7ec82ef167bdff8bf7c4c785abfee74675330a6c9938d1ac8bf"
+  },
+  {
+    "file": "OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz",
+    "url": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz",
+    "sha256": "21e2a065d244ab048e737f21af5d1fc74daaeb6707de36477ead8db1dca71214"
+  }
+]

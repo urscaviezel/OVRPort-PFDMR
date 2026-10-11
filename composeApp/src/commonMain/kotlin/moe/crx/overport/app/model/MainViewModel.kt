@@ -24,7 +24,7 @@ import java.io.OutputStream
 class MainViewModel(val dataDirectory: File, platformIconResizer: IconResizer) : ViewModel() {
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
-        const val RELEASES_URL = "https://api.github.com/repos/ovrport/app/releases"
+        const val RELEASES_URL = "https://api.github.com/repos/urscaviezel/OVRPort-PFDMR/releases"
     }
 
     init {
@@ -55,7 +55,7 @@ class MainViewModel(val dataDirectory: File, platformIconResizer: IconResizer) :
             overportVersion,
             dataDirectory,
             fileName,
-            ""
+            "{filename}.PFDMR.{ext}"
         )
         usePatcher {
             currentProgress = getString(Res.string.progress_preparing)
