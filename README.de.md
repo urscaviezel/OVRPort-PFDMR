@@ -18,7 +18,7 @@ Windows 10/11 x64. Der EXE-Starter verwendet das in Windows enthaltene .NET Fram
 
 1. versucht es erst mal mit den ausgewählten Standardoptionen und testet es
 2. wenn es nicht läuft, versucht es mal mit dem PFDMR minimal Patch und testet es
-3. nur wenn mit der stereakopischen Sicht was nicht stimmt, aktiviert zusätzlich mal den Stereo-Fix und testet es
+3. nur wenn mit der stereoskopischen Sicht was nicht stimmt, aktiviert zusätzlich mal den Stereo-Fix und testet es
 4. wenn alles nichts bringt könnt ihr noch verschiedene Kombinationen versuchen
 
 Der Stereo-Fix ist standardmäßig **aus**; es gibt keine automatische Spieleerkennung. Der Dateinamenvorschlag enthält `.PFDMR`; `.StereoFix` beim Speichern selbst ergänzen. Die Grundoption allein verändert nur das Manifest und konvertiert nicht automatisch alle Quest-APIs.
