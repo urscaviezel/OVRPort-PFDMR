@@ -15,6 +15,7 @@ shutil.copy2(a.jar,folder/'OVRPort-PFDMR.jar')
 shutil.copytree(a.jre,folder/'jre',dirs_exist_ok=True)
 csc=pathlib.Path(os.environ['WINDIR'])/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 subprocess.run([str(csc),'/nologo','/target:winexe','/optimize+','/reference:System.Windows.Forms.dll',
+    '/win32icon:'+str(root/'composeApp/icons/app-icon.ico'),
     '/out:'+str(folder/'OVRPort-PFDMR.exe'),str(root/'launcher/Launcher.cs')],check=True)
 (folder/'Start-OVRPort-PFDMR.cmd').write_text('@echo off\ncd /d "%~dp0"\nstart "" "%~dp0jre\\bin\\javaw.exe" -jar "%~dp0OVRPort-PFDMR.jar" %*\n')
 for name in ['README.md','README.de.md','LICENSE','THIRD-PARTY-NOTICES.md','CHANGELOG.md']:
