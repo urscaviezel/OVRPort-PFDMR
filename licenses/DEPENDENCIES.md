@@ -19,7 +19,7 @@ Generated from the release build; project modules and vendored JARs are included
 | androidx.savedstate:savedstate-desktop:1.3.3 | savedstate-desktop-1.3.3.jar | `c5c89062ba8402b8f8657efd54db1ff192f91ca95fae59c3b418fbc477c3e3ea` | META-INF/androidx/savedstate/savedstate/LICENSE.txt |
 | com.android.tools.build:apksig:8.12.3 | apksig-8.12.3.jar | `c070ed1394629d74641aa0906f60b2ffa1ee77e6366a1f93437f59717b1aeb89` | LICENSE |
 | com.formdev:flatlaf:3.7.2 | flatlaf-3.7.2.jar | `917aff3963c88d797d0fd9b9ccbd70f7681c101df9d11c59e2bc7a3a6c0fabf4` | META-INF/LICENSE |
-| moe.crx:overportcli:0.1.0-beta.2-audio.1 | overportcli-0.1.0-beta.2-audio.1.jar | `5ac1f78ee468b5ca0e4bffcabd19da7af7e640ac8dc1aeb81acb9bef21bbd844` | See upstream project license |
+| moe.crx:overportcli:0.1.0-beta.2 | overportcli-0.1.0-beta.2.jar | `91d8fdedead944c089b929b5f8ce7c3027fb3882297010e3d7ab8a7cea43b255` | See upstream project license |
 | org.bouncycastle:bcpkix-jdk18on:1.83 | bcpkix-jdk18on-1.83.jar | `d3c4c6b700c74ef8164bb15e549d939721b8f14fc0ff89fe19b220243bcfcbd8` | See upstream project license |
 | org.bouncycastle:bcprov-jdk18on:1.83 | bcprov-jdk18on-1.83.jar | `82cf3a2af766c3bc874f6d36b9f20a8b99a8f09762dc776e8a227a45d8daaafb` | See upstream project license |
 | org.bouncycastle:bcutil-jdk18on:1.83 | bcutil-jdk18on-1.83.jar | `ee7d0eb4e74de70a735f7fb36b604dd5c6ad35720d50b914604db042114a0185` | See upstream project license |
