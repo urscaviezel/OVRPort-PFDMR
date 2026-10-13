@@ -18,12 +18,10 @@ Windows 10/11 x64. Der EXE-Starter verwendet das in Windows enthaltene .NET Fram
 
 ## APK mit Stereo-Korrektur erstellen
 
-1. Eine eigene APK laden und eine Overport-Bibliotheksversion auswählen.
-2. **PFDMR OpenXR compatibility (minimum)** einschalten. Dieser Schalter setzt die anderen Optionen zurück und ergänzt die OpenXR-Systemberechtigung.
-3. Danach **PFDMR Stereo-Fix: parallel eyes (experimental)** aktivieren.
-4. Weitere für diese App benötigte Overport-Optionen einschalten, etwa das Kopieren der Overport-Bibliotheken.
-5. Mit **Confirm** unter einem eigenen Namen speichern, etwa `Spiel.PFDMR.StereoFix.apk`.
-6. Wie gewohnt auf der PFDMR installieren und im Headset testen.
+1. versucht es erst mal mit den ausgewählten Standardoptionen und testet es
+2. wenn es nicht läuft, versucht es mal mit dem PFDMR minimal Patch und testet es
+3. nur wenn mit der stereoskopischen Sicht was nicht stimmt, aktiviert zusätzlich mal den Stereo-Fix und testet es
+4. wenn alles nichts bringt könnt ihr noch verschiedene Kombinationen versuchen
 
 Der Stereo-Fix ist standardmäßig **aus**; es gibt keine automatische Spieleerkennung. Der Dateinamenvorschlag enthält `.PFDMR`; `.StereoFix` beim Speichern selbst ergänzen. Die Grundoption allein verändert nur das Manifest und konvertiert nicht automatisch alle Quest-APIs.
 
@@ -31,7 +29,7 @@ Der Stereo-Fix ist standardmäßig **aus**; es gibt keine automatische Spieleerk
 
 Die Korrektur ersetzt die Orientierungen beider OpenXR-Ansichten durch eine gemeinsame Orientierung. **Augenpositionen, Augenabstand und Sichtfeldwerte bleiben erhalten; es bleibt echtes Stereo-3D.** Die zusätzliche Bibliothek arbeitet nur innerhalb der ausgewählten APK. Der ursprüngliche Loader bleibt als `libpfdmr_original_openxr.so` erhalten. Firmware und systemweite OpenXR-Laufzeit werden nicht ersetzt.
 
-- Der zugrunde liegende Ansatz beseitigte im bisherigen privaten Test von **Batman: Arkham Shadow 1.4.1-350961** die Doppelbilder. Das war kein vollständiger Test aller Spielszenen und keine Bestätigung dieser Beta für weitere Spiele.
+- Der zugrunde liegende Ansatz beseitigte im bisherigen privaten Test von **Batman: Arkham Shadow 1.4.1-350961** die Doppelbilder (Standardeinstellungen + Stereo-Fix). Das war kein vollständiger Test aller Spielszenen und keine Bestätigung dieser Beta für weitere Spiele.
 - Automatisierte Tests prüfen APK-Neubau, Signaturen, wiederholtes Patchen und Rückkehr ohne Fix. Native Tests verwenden eine **simulierte OpenXR-Laufzeit** auf der PFDMR und ersetzen keinen Sichttest.
 - Nur ARM64-APKs mit passendem OpenXR-Loader werden unterstützt. Unpassende Loader, zusätzliche nicht abgedeckte direkte OpenXR-Exporte und gemischte OpenXR-Architekturen werden abgelehnt.
 - Unveränderte Sichtfeldwerte sind Teil dieses Ansatzes. Bildränder, Tiefenwirkung und schnelle Kopfbewegungen müssen pro App geprüft werden.

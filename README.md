@@ -20,12 +20,10 @@ Windows 10/11 x64. The EXE launcher uses the Windows .NET Framework 4.x. Interne
 
 ## Applying the optional stereo fix
 
-1. Open an APK you own and select an Overport library version.
-2. Enable **PFDMR OpenXR compatibility (minimum)** first. This clears other selections and adds the OpenXR system permission.
-3. Then enable **PFDMR Stereo-Fix: parallel eyes (experimental)**.
-4. Enable any other patches your application needs, such as copying Overport libraries.
-5. Select **Confirm** and save a separate file, e.g. `Game.PFDMR.StereoFix.apk`.
-6. Install it on the PFDMR with your usual tools and test in the headset.
+1. First, try using the selected default options and test it.
+2. If it doesn't work, try the PFDMR minimal patch and test it.
+3. Only if there is an issue with the stereoscopic view, additionally activate the stereo fix and test it.
+4. If nothing else works, you can try various combinations.
 
 Stereo is **off by default**, with no automatic game detection. The suggested filename includes `.PFDMR`; add `.StereoFix` yourself. The minimum PFDMR option is a manifest-only change, not a conversion of every Quest API.
 
