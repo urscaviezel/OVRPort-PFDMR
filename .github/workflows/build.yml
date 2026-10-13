@@ -23,6 +23,8 @@ jobs:
       - name: Build ARM64 wrapper
         run: python native/build_native.py --ndk "$env:ANDROID_HOME/ndk/27.2.12479018" --tests
       - name: Build desktop JAR
+        run: python audio-helper/build_helper.py --jdk "$env:JAVA_HOME" --sdk "$env:ANDROID_HOME"
+      - name: Package desktop JAR
         run: ./gradlew.bat :composeApp:packageUberJarForCurrentOS :composeApp:dependencyInventory --no-daemon
       - uses: actions/upload-artifact@v4
         with:

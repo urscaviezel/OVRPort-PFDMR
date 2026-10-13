@@ -1,6 +1,8 @@
 # OVRPort PFDMR Edition
 
-**0.1.0-beta.1 · Experimentelle Vorabversion · Windows x64**
+**0.1.0-beta.2-audio.1 · Lokale Audio-Testversion · Windows x64**
+
+Neu: optionaler Schalter **PFDMR Unreal Audio: 48 kHz (experimental)**. Bitte die [Audio-Testanleitung](docs/AUDIO-TEST.de.md) beachten. Diese Version ist noch kein GitHub-Release; die folgenden allgemeinen Hinweise stammen aus Beta 1.
 
 Eine inoffizielle PFDMR-Variante von [ovrport/app](https://github.com/ovrport/app), mit optionaler Stereo-Korrektur für Play For Dream MR. Vielen Dank an die ursprünglichen OVRPort-Entwickler und die Mitwirkenden der verwendeten Bibliotheken. Dieses Projekt ist unabhängig von OVRPort, Play For Dream, Meta und den Spieleherstellern.
 

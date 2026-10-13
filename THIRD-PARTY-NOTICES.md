@@ -1,5 +1,7 @@
 # Third-party notices and source availability
 
+Local **0.1.0-beta.2-audio.1** test build: the matching source ZIP is supplied beside the Windows package. The new Android audio helper is also GPLv3 and is built from `audio-helper/src`. References below to the published Beta 1 release describe the base release and unchanged third-party components.
+
 An independent modification of [ovrport/app](https://github.com/ovrport/app), based on commit `1c7cb335c81369fbfd2957ad0edcb238956a8e3c`. Credit remains with the original developers. The application and this fork's additions are distributed under GPLv3; see `LICENSE`.
 
 ## Matching application source

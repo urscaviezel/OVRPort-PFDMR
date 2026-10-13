@@ -20,7 +20,7 @@ public class StereoTests {
         byte[] original = Files.readAllBytes(Path.of(args[1]));
         var registered = PatchStore.INSTANCE.get(StereoPatch.ID);
         check(registered != null && !registered.isRecommended() && !registered.getRequiresOverportConfig(), "optional patch registered, disabled by default, no unrelated config dependency");
-        check(PatchStore.INSTANCE.all().size() == 23, "all 22 v4 patches preserved");
+        check(PatchStore.INSTANCE.all().size() == 24, "all existing patches and optional audio patch registered");
         check(PatchStore.INSTANCE.recommended().stream().noneMatch(p -> p.getName().equals(StereoPatch.ID)), "stereo excluded from defaults");
         var composer = (androidx.compose.runtime.Composer) java.lang.reflect.Proxy.newProxyInstance(
             StereoTests.class.getClassLoader(), new Class<?>[]{androidx.compose.runtime.Composer.class},

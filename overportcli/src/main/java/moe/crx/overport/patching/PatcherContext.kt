@@ -110,6 +110,7 @@ class PatcherContext(
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
         val orderedArgs = moe.crx.overport.pfdmr.StereoPatch.prepare(this, args)
+        moe.crx.overport.pfdmr.UnrealAudioPatch.prepare(workingDir.toPath(), args.containsKey(moe.crx.overport.pfdmr.UnrealAudioPatch.ID))
         val patches = orderedArgs.keys.mapNotNull { PatchStore.get(it) }
         val needsConfig = patches.any { it.requiresOverportConfig }
         val librariesDir = if (needsConfig) VersionManager(patcherDirectory).getLibraries(overportVersion)

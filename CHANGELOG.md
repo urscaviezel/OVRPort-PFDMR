@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-beta.2-audio.1 — local test, 2026-10-13
+
+- Optional Unreal 48 kHz audio switch, disabled by default; independent of Meta XR Audio and stereo correction.
+- Detect the Unreal project and insert an app-local INI helper before native GameActivity startup. Preserve unrelated settings and back up the original configuration.
+- Repatching the audio test APK with the switch off restores the original sample-rate entries on the next game launch.
+- Local test build only; not published. In-headset validation of this APK integration is pending.
+
 ## 0.1.0-beta.1 — 2026-10-11
 
 First public experimental PFDMR Edition release.

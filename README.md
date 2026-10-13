@@ -1,6 +1,8 @@
 # OVRPort PFDMR Edition
 
-**0.1.0-beta.1 · Experimental pre-release · Windows x64**
+**0.1.0-beta.2-audio.1 · Local audio test build · Windows x64**
+
+Adds optional **PFDMR Unreal Audio: 48 kHz (experimental)**. See [audio testing notes](docs/AUDIO-TEST.de.md). Not published as a GitHub release. General Beta 1 instructions follow below. Audio support is experimental for ARM64 Unreal games with a recognizable project/activity. A startup helper merges the 48 kHz override into the app's internal Engine.ini before native engine startup. Repatch this test APK with audio disabled to restore the original rate on its next launch; unrelated settings are preserved. Simply reinstalling a clean APK does not restore saved configuration. Runtime behavior beyond Action Hero's earlier manual configuration fix remains unverified.
 
 An unofficial PFDMR fork of [ovrport/app](https://github.com/ovrport/app), adding optional parallel-eye stereo compatibility for Play For Dream MR.
 

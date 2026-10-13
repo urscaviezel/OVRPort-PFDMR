@@ -28,7 +28,7 @@ internal static class Launcher {
             foreach (string arg in args) arguments.Append(' ').Append(Quote(arg));
             Process.Start(new ProcessStartInfo { FileName = java, Arguments = arguments.ToString(), WorkingDirectory = root, UseShellExecute = false, CreateNoWindow = true });
         } catch (Exception error) {
-            MessageBox.Show(error.Message, "OVRPort PFDMR Edition 0.1.0-beta.1", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(error.Message, "OVRPort PFDMR Edition", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

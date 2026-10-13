@@ -6,10 +6,11 @@ p.add_argument('--jar',type=pathlib.Path,required=True)
 p.add_argument('--jre',type=pathlib.Path,required=True)
 p.add_argument('--output',type=pathlib.Path,default=root/'dist')
 a=p.parse_args()
-version='0.1.0-beta.1'
+version=next(line.split('=',1)[1].strip() for line in (root/'gradle.properties').read_text().splitlines() if line.startswith('releaseVersion='))
 folder=a.output/f'OVRPort-PFDMR-Edition-{version}-Windows'; folder.mkdir(parents=True,exist_ok=True)
 with zipfile.ZipFile(a.jar) as z:
     if 'pfdmr/arm64-v8a/libopenxr_loader.so' not in z.namelist(): raise SystemExit('Missing native wrapper. Build native first, then rebuild the desktop JAR.')
+    if 'pfdmr/audio/Audio48.smali' not in z.namelist(): raise SystemExit('Missing audio helper. Build audio-helper first, then rebuild the desktop JAR.')
 shutil.copy2(a.jar,folder/'OVRPort-PFDMR.jar')
 shutil.copytree(a.jre,folder/'jre',dirs_exist_ok=True)
 csc=pathlib.Path(os.environ['WINDIR'])/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'

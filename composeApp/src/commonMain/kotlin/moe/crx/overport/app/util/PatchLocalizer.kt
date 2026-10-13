@@ -35,6 +35,7 @@ object PatchLocalizer {
     fun localizedPatch(patch: Patch): String {
         if (patch.name == "patch_pfdmr_openxr_permission") return "PFDMR OpenXR compatibility (minimum)"
         if (patch.name == moe.crx.overport.pfdmr.StereoPatch.ID) return moe.crx.overport.pfdmr.StereoPatch.LABEL
+        if (patch.name == moe.crx.overport.pfdmr.UnrealAudioPatch.ID) return moe.crx.overport.pfdmr.UnrealAudioPatch.LABEL
         return LOCALIZED_PATCHES[patch]?.let {
             stringResource(it)
         } ?: patch.name

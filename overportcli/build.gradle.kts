@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "moe.crx"
-version = "0.1.0-beta.1"
+version = providers.gradleProperty("releaseVersion").get()
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
@@ -27,6 +27,9 @@ tasks.test {
 
 tasks.processResources {
     doFirst {
+        check(file("src/main/resources/pfdmr/audio/Audio48.smali").isFile) {
+            "Build the audio helper first: python audio-helper/build_helper.py --jdk <JDK> --sdk <SDK>"
+        }
         check(file("src/main/resources/pfdmr/arm64-v8a/libopenxr_loader.so").isFile) {
             "Build the stereo wrapper first: python native/build_native.py --ndk <NDK path>"
         }

@@ -127,6 +127,7 @@ class MainViewModel(val dataDirectory: File, platformIconResizer: IconResizer) :
     }
 
     fun versionToUpdate(): GithubRelease? {
+        if (moe.crx.overport.versions.VersionManager.EDITION_VERSION.contains("-audio.")) return null
         return runCatching {
             json
                 .decodeFromString<List<GithubRelease>>(String(download(RELEASES_URL)))
