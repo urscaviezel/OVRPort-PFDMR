@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.4
+
+- Recognize legacy MAIN/INFO launch entries and add the missing PFDMR VR entry.
+- Include this startup correction with the optional Unreal Quest fix.
+
 ## 0.1.0-beta.3
 
 - Optional legacy Unreal Quest startup and controller compatibility fix, disabled by default.

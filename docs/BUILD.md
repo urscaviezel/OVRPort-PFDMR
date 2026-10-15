@@ -1,4 +1,4 @@
-# Building 0.1.0-beta.3 from source
+# Building 0.1.0-beta.4 from source
 
 This beta release builds from this repository, without binary overlay patching or a private v4/v5 JAR.
 
@@ -28,8 +28,8 @@ python scripts/collect_licenses.py
 **Build native first.** Its output in `overportcli/src/main/resources/pfdmr/arm64-v8a/` is embedded in the desktop JAR under `composeApp/build/compose/jars/`.
 
 ```powershell
-& "$env:JAVA_HOME\bin\java.exe" -jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.3.jar'
-python scripts/package_windows.py --jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.3.jar' --jre 'C:\path\to\jre-17.0.20.1+1' --output dist
+& "$env:JAVA_HOME\bin\java.exe" -jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.4.jar'
+python scripts/package_windows.py --jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.4.jar' --jre 'C:\path\to\jre-17.0.20.1+1' --output dist
 ```
 
 Packaging compiles `launcher/Launcher.cs`, copies the runtime/notices and verifies the ZIP. The Windows EXE is not signed. APK signing uses the upstream per-package signing store.
@@ -39,7 +39,7 @@ Packaging compiles `launcher/Launcher.cs`, copies the runtime/notices and verifi
 Run against the final JAR, a disposable workspace, a reference ARM64 loader and a local APK you own. Tests create a disposable signing key and never install the APK:
 
 ```powershell
-$jar = 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.3.jar'
+$jar = 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.4.jar'
 & "$env:JAVA_HOME\bin\javac.exe" --release 17 -encoding UTF-8 -cp $jar -d tests/build tests/StereoTests.java
 & "$env:JAVA_HOME\bin\java.exe" -Xverify:all -cp "tests/build;$jar" StereoTests test-work 'C:\path\to\libopenxr_loader.so' 'C:\path\to\owned-test.apk'
 ```
@@ -53,8 +53,10 @@ For the optional Quest startup/controller patch, use a local APK with the suppor
 
 The native build's `--tests` option generates `native/build/native-tests` and a mock `libpfdmr_original_openxr.so`. Place them and the production wrapper in an isolated temporary directory on an ARM64 Android device and run `LD_LIBRARY_PATH=. ./native-tests`. This tests dispatch, math, preserved positions/FOV and error forwarding; it does not establish game compatibility.
 
+The legacy VR regression test (`tests/LegacyVrTests.java`) covers MAIN/INFO handling, preservation of existing entries, idempotence and signed APK export. Its arguments are a disposable cache directory, an already-patched local test APK and an output APK. To test an update, copy that package's existing signing key into the disposable cache's `signatures` directory; the test requires matching signing certificates. Never include those private fixtures or keys in release assets.
+
 ## Provenance
 
 Upstream history is retained from commit `1c7cb335c81369fbfd2957ad0edcb238956a8e3c`. The upstream vendored JARs are ARSCLib 1.4.0 and smali/baksmali 2.5.2; source archives accompany the release. Maven versions are pinned in `gradle/libs.versions.toml` and recorded in the generated dependency inventory. Runtime sources are identified in `THIRD-PARTY-NOTICES.md`.
 
-Public version: **0.1.0-beta.3**. `VersionManager.VERSION` deliberately remains **1.2.3** for upstream library compatibility checks; `EDITION_VERSION` is the fork's release version.
+Public version: **0.1.0-beta.4**. `VersionManager.VERSION` deliberately remains **1.2.3** for upstream library compatibility checks; `EDITION_VERSION` is the fork's release version.

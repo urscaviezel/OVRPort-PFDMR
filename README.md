@@ -1,6 +1,6 @@
 # OVRPort PFDMR Edition
 
-**0.1.0-beta.3 · Experimental beta · Windows x64 · Java included**
+**0.1.0-beta.4 · Experimental beta · Windows x64 · Java included**
 
 An unofficial fork of [OVRPort](https://github.com/ovrport/app) for Play For Dream MR.
 

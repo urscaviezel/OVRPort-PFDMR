@@ -23,6 +23,10 @@ public final class QuestGatePatch {
     private static final int ZERO = 0x1e2703e0, ONE = 0x1e2e1000, NOP = 0xd503201f;
     public static final Patch PATCH = new Patch(ID, false, false, (executor, args) -> {
         executor.selectWorkspace(file -> { apply(file.getFile().toPath()); return Unit.INSTANCE; });
+        executor.selectManifestJson(manifest -> {
+            moe.crx.overport.patches.LauncherEntryPatchKt.ensureLegacyVrEntry(manifest);
+            return Unit.INSTANCE;
+        });
         return Unit.INSTANCE;
     });
     private static IllegalStateException fail(String why) {
