@@ -5,7 +5,7 @@ An independent modification of [ovrport/app](https://github.com/ovrport/app), ba
 
 ## Matching application source
 
-The **v0.1.0-beta.2** repository tag and the application source archive next to the binaries in the [release](https://github.com/urscaviezel/OVRPort-PFDMR/releases/tag/v0.1.0-beta.2) include the native wrapper, Android audio helper, launcher and build scripts. See the [source build notes](https://github.com/urscaviezel/OVRPort-PFDMR/blob/v0.1.0-beta.2/docs/BUILD.md).
+The **v0.1.0-beta.4** repository tag and the application source archive next to the binaries in the [release](https://github.com/urscaviezel/OVRPort-PFDMR/releases/tag/v0.1.0-beta.4) include the native wrapper, Android audio helper, launcher and build scripts. See the [source build notes](https://github.com/urscaviezel/OVRPort-PFDMR/blob/v0.1.0-beta.4/docs/BUILD.md).
 
 ## Bundled Java runtime
 
