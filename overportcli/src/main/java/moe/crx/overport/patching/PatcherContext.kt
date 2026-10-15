@@ -109,6 +109,7 @@ class PatcherContext(
         args: Map<String, List<String>>,
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
+        moe.crx.overport.pfdmr.QuestGatePatch.restore(workingDir.toPath())
         val orderedArgs = moe.crx.overport.pfdmr.StereoPatch.prepare(this, args)
         moe.crx.overport.pfdmr.UnrealAudioPatch.prepare(workingDir.toPath(), args.containsKey(moe.crx.overport.pfdmr.UnrealAudioPatch.ID))
         val patches = orderedArgs.keys.mapNotNull { PatchStore.get(it) }

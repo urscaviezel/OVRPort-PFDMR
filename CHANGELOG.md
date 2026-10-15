@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.3
+
+- Optional legacy Unreal Quest startup and controller compatibility fix, disabled by default.
+- Validates both native code sites before patching; supports restoring its own edits when deselected.
+
+
 ## 0.1.0-beta.2 — 2026-10-13
 
 - Add optional Unreal 48 kHz audio correction, disabled by default.

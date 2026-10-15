@@ -40,3 +40,7 @@ The source build uses Kotlin, Compose Multiplatform/AndroidX, Skiko, Kotlin coro
 Additional original license and notice texts are in `licenses/`: Kotlin and Compose (JetBrains and contributors, Apache-2.0), Skiko (JetBrains and contributors, Apache-2.0), JBR API (JetBrains, Apache-2.0), JSpecify (Apache-2.0), and Bouncy Castle (Legion of the Bouncy Castle, MIT-style license). AndroidX and apksig retain Android Open Source Project Apache-2.0 notices. FlatLaf retains its Apache-2.0 license. Exact original download URLs and hashes are recorded in `additional-provenance.json`.
 
 The Gradle wrapper is retained from upstream. The Windows .NET Framework launcher prerequisite is not redistributed.
+
+## Legacy Unreal Quest compatibility research
+
+The Quest startup/controller compatibility finding was informed by [FramePort](https://github.com/spoopyghosty0/frameport/blob/main/src/frameport/patches/frame/unreal_santacruz.py), including the investigation credited there to Klownicle. OVRPort-PFDMR uses its own Java implementation with ELF validation and reversible edits. No FramePort executable or Python module is bundled.
