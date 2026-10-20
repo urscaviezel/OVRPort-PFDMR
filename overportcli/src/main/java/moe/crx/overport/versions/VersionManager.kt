@@ -11,7 +11,7 @@ class VersionManager(val workingDirectory: File) {
     companion object {
         val json = Json { ignoreUnknownKeys = true }
         const val VERSION = "1.2.3"
-        const val EDITION_VERSION = "0.1.0-beta.4"
+        const val EDITION_VERSION = "0.1.0-beta.5"
 
         private fun isVersionLower(left: String, right: String): Boolean {
             val (lY, lM, lD) = left.substringBeforeLast('-').split('.').map { it.toInt() }

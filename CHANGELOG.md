@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.5
+
+- Add optional MR passthrough, scene-permission and room-query compatibility, disabled by default.
+- Preserve original loaders and permission code for reversible repatching.
+
 ## 0.1.0-beta.4
 
 - Recognize legacy MAIN/INFO launch entries and add the missing PFDMR VR entry.

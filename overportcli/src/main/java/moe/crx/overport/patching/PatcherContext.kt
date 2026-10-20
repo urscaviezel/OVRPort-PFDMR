@@ -110,7 +110,13 @@ class PatcherContext(
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
         moe.crx.overport.pfdmr.QuestGatePatch.restore(workingDir.toPath())
-        val orderedArgs = moe.crx.overport.pfdmr.StereoPatch.prepare(this, args)
+        moe.crx.overport.pfdmr.StereoPatch.restore(workingDir.toPath())
+        moe.crx.overport.pfdmr.MrCompatibilityPatch.restore(workingDir.toPath())
+        val mrOrdered = LinkedHashMap(args)
+        mrOrdered.remove(moe.crx.overport.pfdmr.MrCompatibilityPatch.ID)?.let {
+            mrOrdered[moe.crx.overport.pfdmr.MrCompatibilityPatch.ID] = it
+        }
+        val orderedArgs = moe.crx.overport.pfdmr.StereoPatch.prepare(this, mrOrdered)
         moe.crx.overport.pfdmr.UnrealAudioPatch.prepare(workingDir.toPath(), args.containsKey(moe.crx.overport.pfdmr.UnrealAudioPatch.ID))
         val patches = orderedArgs.keys.mapNotNull { PatchStore.get(it) }
         val needsConfig = patches.any { it.requiresOverportConfig }

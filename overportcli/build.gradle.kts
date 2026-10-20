@@ -27,6 +27,11 @@ tasks.test {
 
 tasks.processResources {
     doFirst {
+        listOf("libpfdmr_mr_dispatch.so", "libpfdmr_mr_yvr.so").forEach {
+            check(file("src/main/resources/pfdmr/arm64-v8a/$it").isFile) {
+                "Build the MR wrappers first: python native/mr/build_mr.py --ndk <NDK path>"
+            }
+        }
         check(file("src/main/resources/pfdmr/audio/Audio48.smali").isFile) {
             "Build the audio helper first: python audio-helper/build_helper.py --jdk <JDK> --sdk <SDK>"
         }

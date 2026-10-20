@@ -11,6 +11,8 @@ folder=a.output/f'OVRPort-PFDMR-Edition-{version}-Windows'; folder.mkdir(parents
 with zipfile.ZipFile(a.jar) as z:
     if 'pfdmr/arm64-v8a/libopenxr_loader.so' not in z.namelist(): raise SystemExit('Missing native wrapper. Build native first, then rebuild the desktop JAR.')
     if 'pfdmr/audio/Audio48.smali' not in z.namelist(): raise SystemExit('Missing audio helper. Build audio-helper first, then rebuild the desktop JAR.')
+    for name in ['pfdmr/arm64-v8a/libpfdmr_mr_dispatch.so', 'pfdmr/arm64-v8a/libpfdmr_mr_yvr.so', 'pfdmr/mr/PfdmrScenePermissionBridge.smali']:
+        if name not in z.namelist(): raise SystemExit('Missing MR resource: '+name)
 shutil.copy2(a.jar,folder/'OVRPort-PFDMR.jar')
 shutil.copytree(a.jre,folder/'jre',dirs_exist_ok=True)
 csc=pathlib.Path(os.environ['WINDIR'])/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
