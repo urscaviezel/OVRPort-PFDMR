@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.6
+
+- Keep MR compatibility active when applications reopen OpenXR loaders or query the resolver again.
+- Add an Android loader-identity regression test.
+
 ## 0.1.0-beta.5
 
 - Add optional MR passthrough, scene-permission and room-query compatibility, disabled by default.

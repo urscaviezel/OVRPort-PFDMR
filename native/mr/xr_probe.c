@@ -196,6 +196,7 @@ XRAPI_ATTR XrResult XRAPI_CALL xrGetInstanceProcAddr(XrInstance instance,const c
     if(!real_gipa) return XR_ERROR_INITIALIZATION_FAILED;
     XrResult r=real_gipa(instance,name,fn);
     if(XR_SUCCEEDED(r) && *fn) {
+        if(!strcmp(name,"xrGetInstanceProcAddr")) { *fn=(PFN_xrVoidFunction)xrGetInstanceProcAddr; return XR_SUCCESS; }
         if(!strcmp(name,"xrGetSpaceBoundingBox2DFB")) real_box2=(PFN_xrGetSpaceBoundingBox2DFB)*fn;
         if(!strcmp(name,"xrGetSpaceBoundingBox3DFB")) real_box3=(PFN_xrGetSpaceBoundingBox3DFB)*fn;
         if(!strcmp(name,"xrEndFrame")) {real_end=(PFN_xrEndFrame)*fn; *fn=(PFN_xrVoidFunction)probe_end;}

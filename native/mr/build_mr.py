@@ -12,9 +12,12 @@ out.mkdir(parents=True, exist_ok=True)
 base = [str(cc), '--target=aarch64-linux-android29', '-O2', '-Wall', '-Wextra', '-Werror', '-I'+str(root.parent/'include')]
 for source, name in [('xr_probe.c', 'libpfdmr_mr_yvr.so'), ('xr_dispatch.c', 'libpfdmr_mr_dispatch.so')]:
     subprocess.run(base+['-shared', '-fPIC', str(root/source), *([str(root/'forward.c')] if source=='xr_dispatch.c' else [str(root/'yvr_forward.c')]), '-ldl', '-llog',
-        '-Wl,-Bsymbolic', '-Wl,-z,max-page-size=16384', '-Wl,-soname,'+name, '-o', str(out/name)], check=True)
+        '-Wl,-Bsymbolic', '-Wl,-z,max-page-size=16384', '-Wl,-soname,'+('libopenxr_loader.so' if source=='xr_dispatch.c' else 'libopenxr_loader_yvr.so'), '-o', str(out/name)], check=True)
 if a.tests:
     dest = root/'build'; dest.mkdir(exist_ok=True)
     for name in ['test_pt_gate', 'test_scene_buffers', 'test_room_filter', 'test_scene_components']:
         subprocess.run(base+['-fPIE', '-pie', str(root/(name+'.c')), '-ldl', '-llog', '-o', str(dest/name)], check=True)
+    for backup,soname in [('libpfdmr_mr_original_openxr.so','libopenxr_loader.so'),('libpfdmr_mr_original_yvr.so','libopenxr_loader_yvr.so')]:
+        subprocess.run(base+['-shared','-fPIC',str(root/'mock_loader.c'),'-Wl,-soname,'+soname,'-Wl,-Bsymbolic','-o',str(dest/backup)],check=True)
+    subprocess.run(base+['-fPIE','-pie',str(root/'test_loader_identity.c'),'-ldl','-o',str(dest/'test_loader_identity')],check=True)
 print('MR native layers built.')

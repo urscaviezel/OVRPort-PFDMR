@@ -147,6 +147,7 @@ XRAPI_ATTR XrResult XRAPI_CALL xrGetInstanceProcAddr(XrInstance instance,const c
     if(!original_gipa) return XR_ERROR_INITIALIZATION_FAILED;
     XrResult result=original_gipa(instance,name,fn);
     if(XR_SUCCEEDED(result) && *fn) {
+        if(!strcmp(name,"xrGetInstanceProcAddr")) { *fn=(PFN_xrVoidFunction)xrGetInstanceProcAddr; return XR_SUCCESS; }
         if(!strcmp(name,"xrGetSpaceRoomLayoutFB")) dispatch_room=(PFN_xrGetSpaceRoomLayoutFB)*fn;
         if(!strcmp(name,"xrPollEvent")) {dispatch_poll=(PFN_xrPollEvent)*fn;*fn=(PFN_xrVoidFunction)poll_discovery;}
         if(!strcmp(name,"xrDiscoverSpacesMETA")) {real_discover=(DiscoverFn)*fn;*fn=(PFN_xrVoidFunction)discover;}
