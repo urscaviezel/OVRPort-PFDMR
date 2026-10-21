@@ -10,7 +10,7 @@ import moe.crx.overport.patching.*;
 /** Opt-in YVR passthrough/scene compatibility; preserves originals for repatching. */
 public final class MrCompatibilityPatch {
     public static final String ID = "patch_pfdmr_mr_scene";
-    public static final String LABEL = "PFDMR MR: passthrough & scene compatibility (experimental)";
+    public static final String LABEL = "PFDMR MR: scene & spatial compatibility (experimental)";
     private static final String PERMISSION = "com.yvr.permission.USE_SCENE";
     private static final String CLASS = "com/google/vr/sdk/samples/permission/";
     private static final String BRIDGE = "PfdmrScenePermissionBridge";

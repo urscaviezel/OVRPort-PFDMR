@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.7
+
+- Add optional basic passthrough capability correction for a verified ARM64 loader.
+- Keep scene and spatial compatibility as a separate, combinable option.
+- Restore the minimal loader edit when deselected, including combined MR/stereo repatching.
+
 ## 0.1.0-beta.6
 
 - Keep MR compatibility active when applications reopen OpenXR loaders or query the resolver again.

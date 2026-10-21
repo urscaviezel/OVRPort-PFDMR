@@ -30,6 +30,7 @@ object PatchStore {
         register(moe.crx.overport.pfdmr.StereoPatch.PATCH)
         register(moe.crx.overport.pfdmr.UnrealAudioPatch.PATCH)
         register(moe.crx.overport.pfdmr.QuestGatePatch.PATCH)
+        register(moe.crx.overport.pfdmr.BasicPassthroughPatch.PATCH)
         register(moe.crx.overport.pfdmr.MrCompatibilityPatch.PATCH)
         register(PATCH_COPY_LIBRARIES)
         register(PATCH_COPY_OVRPLUGIN_VRAPI)

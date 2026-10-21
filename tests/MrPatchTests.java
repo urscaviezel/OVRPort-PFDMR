@@ -10,7 +10,7 @@ public class MrPatchTests {
  public static void main(String[] args)throws Exception {
   Path run=Path.of(args[0]),input=Path.of(args[1]);Files.createDirectories(run);
   var patch=PatchStore.INSTANCE.get(MrCompatibilityPatch.ID);check(patch!=null&&!patch.isRecommended()&&!patch.getRequiresOverportConfig(),"registered, optional, defaults off");
-  check(PatchStore.INSTANCE.all().size()==26,"all patches retained");
+  check(PatchStore.INSTANCE.all().size()==27,"all patches retained");
   var ctx=new PatcherContext("3.4.3-23204ea",run.resolve("cache").toFile(),"Owned.apk","{filename}.MR.{ext}");
   try(var in=Files.newInputStream(input)){ctx.prepare(in);}Path ws=ctx.getWorkingDir().toPath();var before=smali(ws);
   byte[] engine=entry(input,"lib/arm64-v8a/libUnreal.so");
@@ -35,9 +35,9 @@ public class MrPatchTests {
   for(String lib:List.of("libopenxr_loader.so","libopenxr_loader_yvr.so","libUnreal.so"))check(Arrays.equals(entry(input,"lib/arm64-v8a/"+lib),entry(off,"lib/arm64-v8a/"+lib)),"exact restore "+lib);
   check(new com.android.apksig.ApkVerifier.Builder(off.toFile()).build().verify().isVerified(),"disabled APK signature valid");
   List<String> ran=new ArrayList<>();
-  var selected=new LinkedHashMap<String,List<String>>();selected.put(StereoPatch.ID,List.of());selected.put(MrCompatibilityPatch.ID,List.of());
+  var selected=new LinkedHashMap<String,List<String>>();selected.put(StereoPatch.ID,List.of());selected.put(MrCompatibilityPatch.ID,List.of());selected.put(BasicPassthroughPatch.ID,List.of());
   ctx.patch(selected,(i,p)->{ran.add(p.getName());return kotlin.Unit.INSTANCE;});
-  check(ran.equals(List.of(MrCompatibilityPatch.ID,StereoPatch.ID)),"MR executes after library replacement and before stereo regardless of selection order");
+  check(ran.equals(List.of(BasicPassthroughPatch.ID,MrCompatibilityPatch.ID,StereoPatch.ID)),"MR executes after library replacement and before stereo regardless of selection order");
   Path combined=run.resolve("mr-stereo.apk");try(var out=Files.newOutputStream(combined)){ctx.export(out);}
   ctx.cleanup();try(var in=Files.newInputStream(combined)){ctx.prepare(in);}
   ctx.patch(Map.of(),(i,p)->kotlin.Unit.INSTANCE);

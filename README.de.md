@@ -1,6 +1,6 @@
 # OVRPort PFDMR Edition
 
-**0.1.0-beta.6 · Experimentelle Beta · Windows x64 · Java enthalten**
+**0.1.0-beta.7 · Experimentelle Beta · Windows x64 · Java enthalten**
 
 Eine inoffizielle Variante von [OVRPort](https://github.com/ovrport/app) für Play For Dream MR.
 
@@ -8,7 +8,8 @@ Eine inoffizielle Variante von [OVRPort](https://github.com/ovrport/app) für Pl
 - Optionale Stereo-Korrektur mit parallelen Augenorientierungen.
 - Optionale Unreal-Audiokorrektur auf 48 kHz.
 - Optionaler Unreal-Fix für alte Quest-Startabfragen und Controller-Belegungen.
-- Optionale MR-Kompatibilität für Passthrough und Raumdaten.
+- Optionale minimale Passthrough-Korrektur.
+- Separate optionale Raumdaten-/Spatial-Kompatibilität; beide MR-Optionen sind kombinierbar.
 
 Experimentelle Funktionen sind standardmäßig ausgeschaltet und müssen je nach Spiel individuell getestet werden. Informationen zur Spielekompatibilität werden separat auf PFDhub gepflegt.
 

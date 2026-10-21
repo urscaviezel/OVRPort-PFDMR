@@ -1,4 +1,4 @@
-# Building 0.1.0-beta.6 from source
+# Building 0.1.0-beta.7 from source
 
 This beta release builds from this repository, without binary overlay patching or a private v4/v5 JAR.
 
@@ -29,8 +29,8 @@ python scripts/collect_licenses.py
 **Build native first.** Its output in `overportcli/src/main/resources/pfdmr/arm64-v8a/` is embedded in the desktop JAR under `composeApp/build/compose/jars/`.
 
 ```powershell
-& "$env:JAVA_HOME\bin\java.exe" -jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.6.jar'
-python scripts/package_windows.py --jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.6.jar' --jre 'C:\path\to\jre-17.0.20.1+1' --output dist
+& "$env:JAVA_HOME\bin\java.exe" -jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.7.jar'
+python scripts/package_windows.py --jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.7.jar' --jre 'C:\path\to\jre-17.0.20.1+1' --output dist
 ```
 
 Packaging compiles `launcher/Launcher.cs`, copies the runtime/notices and verifies the ZIP. The Windows EXE is not signed. APK signing uses the upstream per-package signing store.
@@ -40,7 +40,7 @@ Packaging compiles `launcher/Launcher.cs`, copies the runtime/notices and verifi
 Run against the final JAR, a disposable workspace, a reference ARM64 loader and a local APK you own. Tests create a disposable signing key and never install the APK:
 
 ```powershell
-$jar = 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.6.jar'
+$jar = 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.7.jar'
 & "$env:JAVA_HOME\bin\javac.exe" --release 17 -encoding UTF-8 -cp $jar -d tests/build tests/StereoTests.java
 & "$env:JAVA_HOME\bin\java.exe" -Xverify:all -cp "tests/build;$jar" StereoTests test-work 'C:\path\to\libopenxr_loader.so' 'C:\path\to\owned-test.apk'
 ```
@@ -60,7 +60,7 @@ The legacy VR regression test (`tests/LegacyVrTests.java`) covers MAIN/INFO hand
 
 Upstream history is retained from commit `1c7cb335c81369fbfd2957ad0edcb238956a8e3c`. The upstream vendored JARs are ARSCLib 1.4.0 and smali/baksmali 2.5.2; source archives accompany the release. Maven versions are pinned in `gradle/libs.versions.toml` and recorded in the generated dependency inventory. Runtime sources are identified in `THIRD-PARTY-NOTICES.md`.
 
-Public version: **0.1.0-beta.6**. `VersionManager.VERSION` deliberately remains **1.2.3** for upstream library compatibility checks; `EDITION_VERSION` is the fork's release version.
+Build version: **0.1.0-beta.7**. `VersionManager.VERSION` deliberately remains **1.2.3** for upstream library compatibility checks; `EDITION_VERSION` is the fork's release version.
 
 ## Optional MR validation
 
@@ -68,8 +68,12 @@ Public version: **0.1.0-beta.6**. `VersionManager.VERSION` deliberately remains 
 
 `tests/MrPatchTests.java` exercises a local owned APK with the supported permission bridge, including signed export and restoring original code/loaders. Compile against the final desktop JAR; arguments are a disposable test directory and the local APK. Never distribute test APKs or signing keys.
 
-The optional adapter requires ARM64 OverPort/YVR loaders and the recognized `com.google.vr.sdk.samples.permission` bridge. It rejects unsupported layouts rather than guessing. It wraps the two API boundaries, preserving original libraries, and runs after library replacement but before the stereo wrapper. Repatching restores stereo first and MR second. No Unreal address hooks or room/pose diagnostic logging are included. Actual VR/MR transitions and permission prompts still require headset testing.
+The optional adapter requires ARM64 OverPort/YVR loaders and the recognized `com.google.vr.sdk.samples.permission` bridge. It rejects unsupported layouts rather than guessing. It wraps the two API boundaries, preserving original libraries, and runs after library replacement but before the stereo wrapper. Repatching restores stereo first, MR second, and the basic passthrough edit last. No Unreal address hooks or room/pose diagnostic logging are included. Actual VR/MR transitions and permission prompts still require headset testing.
 
 `tests/ScenePermissionTest.smali` is an optional Android-runtime smoke test for the permission name mapping. It assembles with the bundled helper. On the current headset, standalone `dalvikvm` fails during vendor-library preload before the test runs; the native mock tests and signed APK roundtrip remain independently runnable.
 
 The MR loader resources must have the installed SONAMEs `libopenxr_loader.so` and `libopenxr_loader_yvr.so`, despite their distinct resource filenames. Otherwise a second Android `dlopen` may select an original loader and bypass the adapter. `test_loader_identity` reproduces this with mock originals carrying the same SONAMEs. Place the two production wrappers under their installed names beside the mock originals and run with `LD_LIBRARY_PATH=.`. Both repeated library lookup and querying the resolver must retain the wrapper. Beta 5 fails this test; the corrected wrappers pass.
+
+## Basic passthrough validation
+
+`tests/BasicPassthroughTests.java` takes a disposable directory and a local APK containing the supported loader. It checks the exact native change, rejection of unknown versions, ownership-aware rollback, signed APK export and preservation of engine/assets/manifest. `MrPatchTests` also checks combined basic + scene/spatial + stereo export and rollback. The basic fix only changes the basic capability bit reported through `XR_TYPE_SYSTEM_PASSTHROUGH_PROPERTIES2_FB`; it does not add permissions, color/depth support or game-specific input changes.

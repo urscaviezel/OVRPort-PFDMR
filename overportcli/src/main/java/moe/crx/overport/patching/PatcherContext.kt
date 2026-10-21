@@ -112,7 +112,11 @@ class PatcherContext(
         moe.crx.overport.pfdmr.QuestGatePatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.StereoPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.MrCompatibilityPatch.restore(workingDir.toPath())
+        moe.crx.overport.pfdmr.BasicPassthroughPatch.restore(workingDir.toPath())
         val mrOrdered = LinkedHashMap(args)
+        mrOrdered.remove(moe.crx.overport.pfdmr.BasicPassthroughPatch.ID)?.let {
+            mrOrdered[moe.crx.overport.pfdmr.BasicPassthroughPatch.ID] = it
+        }
         mrOrdered.remove(moe.crx.overport.pfdmr.MrCompatibilityPatch.ID)?.let {
             mrOrdered[moe.crx.overport.pfdmr.MrCompatibilityPatch.ID] = it
         }
