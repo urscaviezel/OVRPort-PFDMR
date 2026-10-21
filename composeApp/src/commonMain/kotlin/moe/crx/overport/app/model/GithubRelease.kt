@@ -12,5 +12,16 @@ data class GithubRelease(
     @SerialName("name")
     val name: String,
     @SerialName("published_at")
-    val publishedAt: String,
+    val publishedAt: String? = null,
+    val draft: Boolean = false,
+    val assets: List<GithubAsset> = emptyList(),
+)
+
+@Serializable
+data class GithubAsset(
+    val name: String,
+    @SerialName("browser_download_url") val url: String,
+    val size: Long,
+    val digest: String? = null,
+    val state: String = "uploaded",
 )

@@ -7,12 +7,10 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import moe.crx.overport.app.decodeBitmap
 import moe.crx.overport.patches.IconResizer
 import moe.crx.overport.patches.PLATFORM_ICON_RESIZER
 import moe.crx.overport.patching.PatcherContext
-import moe.crx.overport.utils.HttpUtil.download
 import moe.crx.overport.versions.VersionManager
 import org.jetbrains.compose.resources.getString
 import overportapp.composeapp.generated.resources.*
@@ -22,10 +20,6 @@ import java.io.InputStream
 import java.io.OutputStream
 
 class MainViewModel(val dataDirectory: File, platformIconResizer: IconResizer) : ViewModel() {
-    companion object {
-        private val json = Json { ignoreUnknownKeys = true }
-        const val RELEASES_URL = "https://api.github.com/repos/urscaviezel/OVRPort-PFDMR/releases"
-    }
 
     init {
         PLATFORM_ICON_RESIZER = platformIconResizer
@@ -126,11 +120,19 @@ class MainViewModel(val dataDirectory: File, platformIconResizer: IconResizer) :
         return patcherState?.isApkLoaded() ?: false
     }
 
-    fun versionToUpdate(): GithubRelease? {
-        return runCatching {
-            json
-                .decodeFromString<List<GithubRelease>>(String(download(RELEASES_URL)))
-                .reduceOrNull { left, right -> if (left.publishedAt > right.publishedAt) left else right }
-        }.getOrNull()
+    fun versionToUpdate(): GithubRelease? = AppUpdates.check(VersionManager.EDITION_VERSION)
+
+    suspend fun installUpdate(release: GithubRelease) {
+        check(!working && !isApkLoaded()) { "Finish or cancel the current APK before updating." }
+        working = true
+        try {
+            withContext(Dispatchers.IO) {
+                AppUpdates.prepare(release) { currentProgress = it }
+            }
+            kotlin.system.exitProcess(0)
+        } finally {
+            working = false
+            currentProgress = null
+        }
     }
 }

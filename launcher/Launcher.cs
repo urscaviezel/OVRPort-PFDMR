@@ -21,6 +21,17 @@ internal static class Launcher {
     private static void Main(string[] args) {
         try {
             string root = AppDomain.CurrentDomain.BaseDirectory;
+            if (args.Length == 3 && args[0] == "--finish-update") {
+                string stage = Path.GetFullPath(args[1]).TrimEnd(Path.DirectorySeparatorChar);
+                string directory = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+                if (Path.GetDirectoryName(stage) != directory || !Path.GetFileName(stage).StartsWith(".pfdmr-update-", StringComparison.Ordinal))
+                    throw new IOException("Invalid update cleanup path.");
+                try { if (!Process.GetProcessById(Int32.Parse(args[2])).WaitForExit(120000)) throw new IOException("Update is still running."); }
+                catch (ArgumentException) { /* Helper already exited. */ }
+                // Only remove the validated private staging directory after its helper exits.
+                if (Directory.Exists(stage)) { CheckNoLinks(stage); Directory.Delete(stage, true); }
+                args = new string[0];
+            }
             string java = Path.Combine(root, "jre", "bin", "javaw.exe");
             string jar = Path.Combine(root, "OVRPort-PFDMR.jar");
             if (!File.Exists(java) || !File.Exists(jar)) throw new FileNotFoundException("Please extract the complete ZIP first. The jre folder and OVRPort-PFDMR.jar must remain beside this launcher.");
@@ -30,5 +41,9 @@ internal static class Launcher {
         } catch (Exception error) {
             MessageBox.Show(error.Message, "OVRPort PFDMR Edition", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+    private static void CheckNoLinks(string path) {
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new IOException("Linked update directory.");
+        if (Directory.Exists(path)) foreach (string child in Directory.GetFileSystemEntries(path)) CheckNoLinks(child);
     }
 }

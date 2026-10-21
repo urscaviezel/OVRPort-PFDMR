@@ -13,6 +13,8 @@ Eine inoffizielle Variante von [OVRPort](https://github.com/ovrport/app) für Pl
 
 Experimentelle Funktionen sind standardmäßig ausgeschaltet und müssen je nach Spiel individuell getestet werden. Informationen zur Spielekompatibilität werden separat auf PFDhub gepflegt.
 
+Neue Versionen werden automatisch gesucht. Mit **Check for updates** / **Update** in der App wird die neue Version heruntergeladen, installiert und die App neu gestartet. Einstellungen und Signierschlüssel bleiben erhalten.
+
 [Download](https://github.com/urscaviezel/OVRPort-PFDMR/releases) · [English](README.md)
 
 Vielen Dank an die ursprünglichen OVRPort-Entwickler und die Mitwirkenden der verwendeten Bibliotheken. Eigenständig gepflegt; keine offizielle OVRPort-Veröffentlichung.

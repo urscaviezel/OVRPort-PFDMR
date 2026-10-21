@@ -10,21 +10,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.withContext
 import moe.crx.overport.app.model.GithubRelease
 import moe.crx.overport.app.model.MainViewModel
 import moe.crx.overport.app.theme.OverportTheme
-import moe.crx.overport.versions.VersionManager
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import overportapp.composeapp.generated.resources.Res
 import overportapp.composeapp.generated.resources.overport
 import overportapp.composeapp.generated.resources.patcher_nav_item
-import overportapp.composeapp.generated.resources.update_available
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -46,12 +44,34 @@ fun AppContent(
             }
 
         var versionToUpdate by remember { mutableStateOf<GithubRelease?>(null) }
-        val urlHandler = LocalUriHandler.current
+        val scope = rememberCoroutineScope()
+        var checking by remember { mutableStateOf(false) }
+        var confirmUpdate by remember { mutableStateOf(false) }
+        var updateError by remember { mutableStateOf<String?>(null) }
 
         LaunchedEffect(Unit) {
-            withContext(Dispatchers.IO) {
-                versionToUpdate = viewModel.versionToUpdate()
-            }
+            checking = true
+            versionToUpdate = withContext(Dispatchers.IO) { runCatching { viewModel.versionToUpdate() }.getOrNull() }
+            checking = false
+        }
+        if (confirmUpdate && versionToUpdate != null) {
+            AlertDialog(
+                onDismissRequest = { confirmUpdate = false },
+                title = { Text("Update to ${versionToUpdate!!.tagName}?") },
+                text = { Text("The update will be downloaded and verified, then the app will restart. Settings and signing keys are preserved.") },
+                confirmButton = { TextButton(enabled = !viewModel.working && !viewModel.isApkLoaded(), onClick = {
+                    confirmUpdate = false
+                    scope.launch {
+                        try { viewModel.installUpdate(versionToUpdate!!) }
+                        catch (e: Exception) { updateError = e.message ?: "Update failed. Please try again." }
+                    }
+                }) { Text("Update and restart") } },
+                dismissButton = { TextButton(onClick = { confirmUpdate = false }) { Text("Later") } },
+            )
+        }
+        updateError?.let { message ->
+            AlertDialog(onDismissRequest = { updateError = null }, title = { Text("Update unavailable") },
+                text = { Text(message) }, confirmButton = { TextButton(onClick = { updateError = null }) { Text("OK") } })
         }
 
         DynamicScaffold(
@@ -68,22 +88,25 @@ fun AppContent(
                         }
                     },
                     actions = {
-                        val isUpdateAvailable =
-                            versionToUpdate?.tagName != null && versionToUpdate?.tagName != "v${VersionManager.EDITION_VERSION}"
-                        FadeVisibility(isUpdateAvailable) {
-                            FilledTonalButton(
-                                modifier = Modifier.padding(8.dp, 0.dp),
-                                onClick = { versionToUpdate?.htmlUrl?.let { urlHandler.openUri(it) } }
-                            ) {
-                                Icon(
-                                    Icons.Default.CloudDownload,
-                                    contentDescription = null,
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    stringResource(Res.string.update_available),
-                                )
+                        FilledTonalButton(
+                            modifier = Modifier.padding(8.dp, 0.dp),
+                            enabled = !checking && !viewModel.working && !viewModel.isApkLoaded(),
+                            onClick = {
+                                if (versionToUpdate != null) confirmUpdate = true
+                                else scope.launch {
+                                    checking = true
+                                    try {
+                                        versionToUpdate = withContext(Dispatchers.IO) { viewModel.versionToUpdate() }
+                                        if (versionToUpdate == null) snackbarHostState.showSnackbar("You are up to date.")
+                                        else confirmUpdate = true
+                                    } catch (e: Exception) { updateError = e.message ?: "Could not check GitHub for updates." }
+                                    finally { checking = false }
+                                }
                             }
+                        ) {
+                            Icon(Icons.Default.CloudDownload, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (checking) "Checking..." else if (versionToUpdate != null) "Update ${versionToUpdate!!.tagName}" else "Check for updates")
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(

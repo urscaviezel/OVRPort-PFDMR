@@ -13,6 +13,8 @@ An unofficial fork of [OVRPort](https://github.com/ovrport/app) for Play For Dre
 
 Experimental functions are disabled by default and must be tested individually for each game. Compatibility information is maintained separately on PFDhub.
 
+New versions are checked automatically. Use **Check for updates** / **Update** in the app to download and install an update, then restart automatically. Settings and signing keys are preserved.
+
 [Download](https://github.com/urscaviezel/OVRPort-PFDMR/releases) · [Deutsch](README.de.md)
 
 Credit and thanks to the original OVRPort developers and dependency contributors. Independently maintained; not an official OVRPort release.

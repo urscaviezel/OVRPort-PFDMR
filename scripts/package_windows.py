@@ -19,7 +19,9 @@ csc=pathlib.Path(os.environ['WINDIR'])/'Microsoft.NET/Framework64/v4.0.30319/csc
 subprocess.run([str(csc),'/nologo','/target:winexe','/optimize+','/reference:System.Windows.Forms.dll',
     '/win32icon:'+str(root/'composeApp/icons/app-icon.ico'),
     '/out:'+str(folder/'OVRPort-PFDMR.exe'),str(root/'launcher/Launcher.cs')],check=True)
-(folder/'Start-OVRPort-PFDMR.cmd').write_text('@echo off\ncd /d "%~dp0"\nstart "" "%~dp0jre\\bin\\javaw.exe" -jar "%~dp0OVRPort-PFDMR.jar" %*\n')
+subprocess.run([str(csc),'/nologo','/target:winexe','/optimize+','/reference:System.Windows.Forms.dll',
+    '/out:'+str(folder/'PFDMR-Updater.exe'),str(root/'launcher/Updater.cs')],check=True)
+(folder/'Start-OVRPort-PFDMR.cmd').write_text('@echo off\ncd /d "%~dp0"\nstart "" "%~dp0OVRPort-PFDMR.exe" %*\n')
 for name in ['README.md','README.de.md','LICENSE','THIRD-PARTY-NOTICES.md','CHANGELOG.md']:
     shutil.copy2(root/name,folder/name)
 shutil.copytree(root/'licenses',folder/'licenses',dirs_exist_ok=True)

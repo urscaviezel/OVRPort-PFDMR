@@ -2,6 +2,9 @@
 
 ## 0.1.0-beta.7
 
+- Check for new GitHub releases and update the Windows app in place after confirmation.
+- Verify downloads, preserve user data, and restore the previous files if installation fails.
+
 - Add optional basic passthrough capability correction for a verified ARM64 loader.
 - Keep scene and spatial compatibility as a separate, combinable option.
 - Restore the minimal loader edit when deselected, including combined MR/stereo repatching.
