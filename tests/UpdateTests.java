@@ -23,6 +23,7 @@ public class UpdateTests {
   String data="["+release("0.1.0-beta.6",false,true)+","+release("0.1.0-beta.10",true,true)+","+release("0.1.0-beta.9",false,false)+","+release("0.1.0-beta.8",false,true)+"]";
   check(u.selectRelease(data,"0.1.0-beta.7").getTagName().equals("v0.1.0-beta.8"),"newer complete beta selected; drafts and incomplete releases skipped");
   check(u.selectRelease(data,"0.1.0-beta.8")==null,"no equal-version reinstall or downgrade");
+  check(u.selectRelease("["+release("0.1.0-beta.8",false,true).replace("\"name\":\"test\"","\"name\":null")+"]","0.1.0-beta.7")!=null,"release without optional display title accepted");
   check(u.selectRelease("["+release("0.1.0-beta.8",false,true).replace("https://github.com/urscaviezel/OVRPort-PFDMR/releases/download/","https://example.com/")+"]","0.1.0-beta.7")==null,"foreign asset URL rejected");
   check(u.selectRelease("["+release("0.1.0-beta.8",false,true).replace("sha256:","sha1:")+"]","0.1.0-beta.7")==null,"missing trustworthy checksum rejected");
   Path archive=run.resolve("test.zip");String prefix="OVRPort-PFDMR-Edition-0.1.0-beta.8-Windows/";
