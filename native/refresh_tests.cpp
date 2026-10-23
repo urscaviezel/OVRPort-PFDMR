@@ -34,4 +34,20 @@ int main(){
     for(int hz:{72,80,90}){mockHz=hz;check(request((XrSession)1,90)==XR_SESSION_LOSS_PENDING&&recorded()==hz,"forward current HMD selection, including changes after startup");}
     mockHz=999;request((XrSession)1,90);check(recorded()==0,"unknown setting falls back to runtime preference");
     mockHz=72;mockFail=true;request((XrSession)1,90);check(recorded()==0&&!mockException,"settings exception cleared with safe fallback");
+    mockFail=false;mockHz=72;
+    auto enabled=(unsigned(*)())dlsym(original,"enabledRefreshCount");
+    check(enabled()==1,"enable supported refresh extension for apps without preference");
+    const char* extensions[]={XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME};createInfo.enabledExtensionCount=1;createInfo.enabledExtensionNames=extensions;
+    create(&createInfo,&instance);check(enabled()==1,"do not duplicate enabled refresh extension");
+    get(instance,"xrCreateSession",&fn);auto createSession=(PFN_xrCreateSession)fn;
+    XrSession session;XrSessionCreateInfo sessionInfo{XR_TYPE_SESSION_CREATE_INFO};
+    check(createSession(instance,&sessionInfo,&session)==XR_SUCCESS,"resolver session creation succeeds");
+    get(instance,"xrBeginSession",&fn);auto beginSession=(PFN_xrBeginSession)fn;
+    XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
+    check(beginSession(session,&beginInfo)==XR_SUCCESS&&recorded()==72,"apply HMD preference after session start without app request");
+    mockHz=80;check(beginSession(session,&beginInfo)==XR_SUCCESS&&recorded()==80,"reapply current preference on session restart");
+    check(beginSession(XR_NULL_HANDLE,&beginInfo)==XR_ERROR_HANDLE_INVALID&&recorded()==90,"failed session start does not request rate");
+    mockHz=999;check(beginSession(session,&beginInfo)==XR_SUCCESS&&recorded()==90,"missing preference leaves startup rate untouched");
+    get(instance,"xrDestroySession",&fn);check(((PFN_xrDestroySession)fn)(session)==XR_SUCCESS,"session destruction forwarded");
+    mockHz=72;beginSession(session,&beginInfo);check(recorded()==90,"destroyed session no longer carries refresh dispatch");
 }

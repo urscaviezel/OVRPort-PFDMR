@@ -5,6 +5,8 @@
 #include <cstring>
 #include <jni.h>
 #include <mutex>
+#include <vector>
+#include <unordered_map>
 #include <android/log.h>
 
 // Layouts from XR_KHR_android_create_instance / XR_KHR_loader_init_android.
@@ -59,10 +61,65 @@ void* sym(const char* name) {
     return library?dlsym(library,name):nullptr;
 }
 static std::atomic<PFN_xrRequestDisplayRefreshRateFB> requestRate{nullptr};
+static std::mutex sessionMutex;
+static std::unordered_map<XrSession,PFN_xrRequestDisplayRefreshRateFB> sessionRequests;
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrCreateInstance(const XrInstanceCreateInfo* info,XrInstance* instance) {
     if(info)captureContext(info->next,XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR);
     auto fn=reinterpret_cast<PFN_xrCreateInstance>(sym("xrCreateInstance"));
-    return fn?fn(info,instance):XR_ERROR_FUNCTION_UNSUPPORTED;
+    if(!fn)return XR_ERROR_FUNCTION_UNSUPPORTED;
+    // Enable the supported extension even when the application never requests it.
+    XrInstanceCreateInfo copy{};std::vector<const char*> names;
+    if(info){
+        copy=*info;bool enabled=false;
+        for(uint32_t i=0;i<info->enabledExtensionCount;i++){
+            names.push_back(info->enabledExtensionNames[i]);
+            if(!strcmp(names.back(),XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME))enabled=true;
+        }
+        auto enumerate=reinterpret_cast<PFN_xrEnumerateInstanceExtensionProperties>(sym("xrEnumerateInstanceExtensionProperties"));
+        uint32_t count=0;
+        if(!enabled&&enumerate&&XR_SUCCEEDED(enumerate(nullptr,0,&count,nullptr))&&count<4096){
+            std::vector<XrExtensionProperties> properties(count,{XR_TYPE_EXTENSION_PROPERTIES});
+            if(XR_SUCCEEDED(enumerate(nullptr,count,&count,properties.data()))){
+                for(const auto& property:properties)if(!strcmp(property.extensionName,XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME)){
+                    names.push_back(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME);break;
+                }
+            }
+        }
+        copy.enabledExtensionCount=static_cast<uint32_t>(names.size());copy.enabledExtensionNames=names.data();
+    }
+    return fn(info?&copy:nullptr,instance);
+}
+extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrCreateSession(XrInstance instance,const XrSessionCreateInfo* info,XrSession* session){
+    auto create=reinterpret_cast<PFN_xrCreateSession>(sym("xrCreateSession"));
+    XrResult result=create?create(instance,info,session):XR_ERROR_FUNCTION_UNSUPPORTED;
+    if(XR_SUCCEEDED(result)&&session){
+        auto get=reinterpret_cast<PFN_xrGetInstanceProcAddr>(sym("xrGetInstanceProcAddr"));PFN_xrVoidFunction fn=nullptr;
+        if(get&&XR_SUCCEEDED(get(instance,"xrRequestDisplayRefreshRateFB",&fn))&&fn){
+            std::lock_guard<std::mutex> lock(sessionMutex);
+            sessionRequests[*session]=reinterpret_cast<PFN_xrRequestDisplayRefreshRateFB>(fn);
+        }
+    }
+    return result;
+}
+extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrBeginSession(XrSession session,const XrSessionBeginInfo* info){
+    auto begin=reinterpret_cast<PFN_xrBeginSession>(sym("xrBeginSession"));
+    XrResult result=begin?begin(session,info):XR_ERROR_FUNCTION_UNSUPPORTED;
+    if(XR_SUCCEEDED(result)){
+        PFN_xrRequestDisplayRefreshRateFB request=nullptr;
+        {std::lock_guard<std::mutex> lock(sessionMutex);auto it=sessionRequests.find(session);if(it!=sessionRequests.end())request=it->second;}
+        float target=headsetRate();
+        if(target&&request){
+            XrResult rateResult=request(session,target);
+            __android_log_print(ANDROID_LOG_INFO,"PFDMRRefresh","Session start: HMD %.0f Hz, request result %d",target,rateResult);
+        }else __android_log_print(ANDROID_LOG_INFO,"PFDMRRefresh","Session start: HMD %.0f Hz, request available %d",target,request!=nullptr);
+    }
+    return result;
+}
+extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrDestroySession(XrSession session){
+    auto destroy=reinterpret_cast<PFN_xrDestroySession>(sym("xrDestroySession"));
+    XrResult result=destroy?destroy(session):XR_ERROR_FUNCTION_UNSUPPORTED;
+    if(XR_SUCCEEDED(result)){std::lock_guard<std::mutex> lock(sessionMutex);sessionRequests.erase(session);}
+    return result;
 }
 static std::atomic<PFN_xrInitializeLoaderKHR> initializeLoader{nullptr};
 static XrResult initLoader(const XrLoaderInitInfoBaseHeaderKHR* info) {
@@ -91,6 +148,9 @@ extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrGetInstanceProcAddr(XrInstance insta
             requestRate.store(reinterpret_cast<PFN_xrRequestDisplayRefreshRateFB>(*fn));
             *fn=reinterpret_cast<PFN_xrVoidFunction>(xrRequestDisplayRefreshRateFB);
         } else if(!strcmp(name,"xrCreateInstance")) *fn=reinterpret_cast<PFN_xrVoidFunction>(xrCreateInstance);
+        else if(!strcmp(name,"xrCreateSession")) *fn=reinterpret_cast<PFN_xrVoidFunction>(xrCreateSession);
+        else if(!strcmp(name,"xrBeginSession")) *fn=reinterpret_cast<PFN_xrVoidFunction>(xrBeginSession);
+        else if(!strcmp(name,"xrDestroySession")) *fn=reinterpret_cast<PFN_xrVoidFunction>(xrDestroySession);
         else if(!strcmp(name,"xrInitializeLoaderKHR")){initializeLoader=reinterpret_cast<PFN_xrInitializeLoaderKHR>(*fn);*fn=reinterpret_cast<PFN_xrVoidFunction>(initLoader);}
         else if(!strcmp(name,"xrGetInstanceProcAddr")) *fn=reinterpret_cast<PFN_xrVoidFunction>(xrGetInstanceProcAddr);
     }

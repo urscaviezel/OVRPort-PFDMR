@@ -14,9 +14,11 @@ extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrAttachSessionActionSets(
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrBeginFrame(
     XrSession                                   session,
     const XrFrameBeginInfo*                     frameBeginInfo) { auto fn=(PFN_xrBeginFrame)sym("xrBeginFrame"); return fn ? fn(session, frameBeginInfo) : XR_ERROR_FUNCTION_UNSUPPORTED; }
+#ifndef PFDMR_CUSTOM_CREATE_INSTANCE
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrBeginSession(
     XrSession                                   session,
     const XrSessionBeginInfo*                   beginInfo) { auto fn=(PFN_xrBeginSession)sym("xrBeginSession"); return fn ? fn(session, beginInfo) : XR_ERROR_FUNCTION_UNSUPPORTED; }
+#endif
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrCreateAction(
     XrActionSet                                 actionSet,
     const XrActionCreateInfo*                   createInfo,
@@ -38,10 +40,12 @@ extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrCreateReferenceSpace(
     XrSession                                   session,
     const XrReferenceSpaceCreateInfo*           createInfo,
     XrSpace*                                    space) { auto fn=(PFN_xrCreateReferenceSpace)sym("xrCreateReferenceSpace"); return fn ? fn(session, createInfo, space) : XR_ERROR_FUNCTION_UNSUPPORTED; }
+#ifndef PFDMR_CUSTOM_CREATE_INSTANCE
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrCreateSession(
     XrInstance                                  instance,
     const XrSessionCreateInfo*                  createInfo,
     XrSession*                                  session) { auto fn=(PFN_xrCreateSession)sym("xrCreateSession"); return fn ? fn(instance, createInfo, session) : XR_ERROR_FUNCTION_UNSUPPORTED; }
+#endif
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrCreateSwapchain(
     XrSession                                   session,
     const XrSwapchainCreateInfo*                createInfo,
@@ -52,8 +56,10 @@ extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrDestroyActionSet(
     XrActionSet                                 actionSet) { auto fn=(PFN_xrDestroyActionSet)sym("xrDestroyActionSet"); return fn ? fn(actionSet) : XR_ERROR_FUNCTION_UNSUPPORTED; }
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrDestroyInstance(
     XrInstance                                  instance) { auto fn=(PFN_xrDestroyInstance)sym("xrDestroyInstance"); return fn ? fn(instance) : XR_ERROR_FUNCTION_UNSUPPORTED; }
+#ifndef PFDMR_CUSTOM_CREATE_INSTANCE
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrDestroySession(
     XrSession                                   session) { auto fn=(PFN_xrDestroySession)sym("xrDestroySession"); return fn ? fn(session) : XR_ERROR_FUNCTION_UNSUPPORTED; }
+#endif
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrDestroySpace(
     XrSpace                                     space) { auto fn=(PFN_xrDestroySpace)sym("xrDestroySpace"); return fn ? fn(space) : XR_ERROR_FUNCTION_UNSUPPORTED; }
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrDestroySwapchain(
