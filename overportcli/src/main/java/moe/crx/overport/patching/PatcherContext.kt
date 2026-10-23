@@ -115,6 +115,7 @@ class PatcherContext(
         args: Map<String, List<String>>,
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
+        moe.crx.overport.pfdmr.UnrealObbPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.VulkanHeapPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.QuestGatePatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.RefreshRatePatch.restore(workingDir.toPath())

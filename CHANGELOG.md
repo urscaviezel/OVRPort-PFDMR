@@ -3,6 +3,8 @@
 ## 0.1.0-beta.8
 
 - Add optional HMD refresh-rate preference using the saved headset setting; leave SpaceWarp unchanged.
+- Add existing-OBB startup compatibility for a verified Unreal build.
+- Group default options together and place the optional refresh-rate setting immediately above them.
 - Add Vulkan heap compatibility for a verified engine build.
 - Prevent multiple desktop instances sharing the same workspace.
 - Release exported APK files immediately and close archives before cleanup.
