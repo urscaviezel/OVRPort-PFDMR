@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-beta.9
+
+- Add an optional, version-checked compatibility profile for rendering, room transitions, controller poses and stability.
+
 ## 0.1.0-beta.8
 
 - Add optional HMD refresh-rate preference using the saved headset setting; leave SpaceWarp unchanged.

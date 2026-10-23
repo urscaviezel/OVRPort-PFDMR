@@ -115,11 +115,13 @@ class PatcherContext(
         args: Map<String, List<String>>,
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
+        moe.crx.overport.pfdmr.Pinball110Patch.validateSelection(this, args)
         moe.crx.overport.pfdmr.UnrealObbPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.VulkanHeapPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.QuestGatePatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.RefreshRatePatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.StereoPatch.restore(workingDir.toPath())
+        moe.crx.overport.pfdmr.Pinball110Patch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.MrCompatibilityPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.BasicPassthroughPatch.restore(workingDir.toPath())
         val mrOrdered = LinkedHashMap(args)
@@ -128,6 +130,9 @@ class PatcherContext(
         }
         mrOrdered.remove(moe.crx.overport.pfdmr.MrCompatibilityPatch.ID)?.let {
             mrOrdered[moe.crx.overport.pfdmr.MrCompatibilityPatch.ID] = it
+        }
+        mrOrdered.remove(moe.crx.overport.pfdmr.Pinball110Patch.ID)?.let {
+            mrOrdered[moe.crx.overport.pfdmr.Pinball110Patch.ID] = it
         }
         val orderedArgs = LinkedHashMap(moe.crx.overport.pfdmr.StereoPatch.prepare(this, mrOrdered))
         orderedArgs.remove(moe.crx.overport.pfdmr.RefreshRatePatch.ID)?.let {

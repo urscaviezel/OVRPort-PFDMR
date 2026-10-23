@@ -37,6 +37,7 @@ object PatchLocalizer {
         if (patch.name == moe.crx.overport.pfdmr.StereoPatch.ID) return moe.crx.overport.pfdmr.StereoPatch.LABEL
         if (patch.name == moe.crx.overport.pfdmr.UnrealAudioPatch.ID) return moe.crx.overport.pfdmr.UnrealAudioPatch.LABEL
         if (patch.name == moe.crx.overport.pfdmr.BasicPassthroughPatch.ID) return moe.crx.overport.pfdmr.BasicPassthroughPatch.LABEL
+        if (patch.name == moe.crx.overport.pfdmr.Pinball110Patch.ID) return moe.crx.overport.pfdmr.Pinball110Patch.LABEL
         if (patch.name == moe.crx.overport.pfdmr.RefreshRatePatch.ID) return moe.crx.overport.pfdmr.RefreshRatePatch.LABEL
         if (patch.name == moe.crx.overport.pfdmr.MrCompatibilityPatch.ID) return moe.crx.overport.pfdmr.MrCompatibilityPatch.LABEL
         if (patch.name == moe.crx.overport.pfdmr.QuestGatePatch.ID) return moe.crx.overport.pfdmr.QuestGatePatch.LABEL
