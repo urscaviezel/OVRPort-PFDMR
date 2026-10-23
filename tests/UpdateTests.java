@@ -36,7 +36,7 @@ public class UpdateTests {
   check(fails(()->UpdateFiles.verify(archive,Files.size(archive),"sha256:"+"0".repeat(64))),"corrupt download rejected");
   check(fails(()->UpdateFiles.verify(archive,Files.size(archive)+1,digest)),"truncated download rejected");
   check(fails(()->UpdateFiles.download("http://example.com",run.resolve("http"),10)),"unencrypted redirect/download rejected");
-  if(args.length>1){UpdateFiles.extract(Path.of(args[1]),run.resolve("real-package"),"0.1.0-beta.7");check(true,"real packaged update extracts successfully");}
+  if(args.length>1){UpdateFiles.extract(Path.of(args[1]),run.resolve("real-package"),args.length>2?args[2]:"0.1.0-beta.7");check(true,"real packaged update extracts successfully");}
   System.out.println("ALL "+count+" UPDATE CHECKS PASSED");
  }
 }

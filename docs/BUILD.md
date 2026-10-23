@@ -1,4 +1,4 @@
-# Building 0.1.0-beta.7 from source
+# Building 0.1.0-beta.8 from source
 
 This beta release builds from this repository, without binary overlay patching or a private v4/v5 JAR.
 
@@ -29,8 +29,8 @@ python scripts/collect_licenses.py
 **Build native first.** Its output in `overportcli/src/main/resources/pfdmr/arm64-v8a/` is embedded in the desktop JAR under `composeApp/build/compose/jars/`.
 
 ```powershell
-& "$env:JAVA_HOME\bin\java.exe" -jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.7.jar'
-python scripts/package_windows.py --jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.7.jar' --jre 'C:\path\to\jre-17.0.20.1+1' --output dist
+& "$env:JAVA_HOME\bin\java.exe" -jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.8.jar'
+python scripts/package_windows.py --jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.8.jar' --jre 'C:\path\to\jre-17.0.20.1+1' --output dist
 ```
 
 Packaging compiles `launcher/Launcher.cs`, copies the runtime/notices and verifies the ZIP. The Windows EXE is not signed. APK signing uses the upstream per-package signing store.
@@ -40,7 +40,7 @@ Packaging compiles `launcher/Launcher.cs`, copies the runtime/notices and verifi
 Run against the final JAR, a disposable workspace, a reference ARM64 loader and a local APK you own. Tests create a disposable signing key and never install the APK:
 
 ```powershell
-$jar = 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.7.jar'
+$jar = 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.8.jar'
 & "$env:JAVA_HOME\bin\javac.exe" --release 17 -encoding UTF-8 -cp $jar -d tests/build tests/StereoTests.java
 & "$env:JAVA_HOME\bin\java.exe" -Xverify:all -cp "tests/build;$jar" StereoTests test-work 'C:\path\to\libopenxr_loader.so' 'C:\path\to\owned-test.apk'
 ```
@@ -60,7 +60,7 @@ The legacy VR regression test (`tests/LegacyVrTests.java`) covers MAIN/INFO hand
 
 Upstream history is retained from commit `1c7cb335c81369fbfd2957ad0edcb238956a8e3c`. The upstream vendored JARs are ARSCLib 1.4.0 and smali/baksmali 2.5.2; source archives accompany the release. Maven versions are pinned in `gradle/libs.versions.toml` and recorded in the generated dependency inventory. Runtime sources are identified in `THIRD-PARTY-NOTICES.md`.
 
-Build version: **0.1.0-beta.7**. `VersionManager.VERSION` deliberately remains **1.2.3** for upstream library compatibility checks; `EDITION_VERSION` is the fork's release version.
+Build version: **0.1.0-beta.8**. `VersionManager.VERSION` deliberately remains **1.2.3** for upstream library compatibility checks; `EDITION_VERSION` is the fork's release version.
 
 ## Optional MR validation
 
@@ -85,3 +85,11 @@ The app checks the public fork release API at startup and on request. Published 
 The Windows package includes PFDMR-Updater.exe compiled from launcher/Updater.cs. Download and extraction finish before shutdown. The helper waits for the Java process, replaces only known package files/directories, rolls back on installation/restart errors and launches the app again. The launcher removes the old-file backup/staging directory after the helper exits. User cache/settings/signing keys live outside these managed files and are preserved. The installation must be writable; no administrator elevation is requested. Failed downloads leave the installed version running. Manual JAR/development launches do not support automatic installation. Power loss or a forcibly terminated helper can leave recovery files in the .pfdmr-update-* staging directory; these should be retained for recovery.
 
 Compile tests/UpdateTests.java against the desktop JAR and run with a new disposable directory and optionally the Windows ZIP. It checks release selection, version ordering, digests, traversal/invalid archives and real package extraction. Compile launcher/Updater.cs plus tests/UpdaterTests.cs with the framework C# compiler and /main:UpdaterTests to exercise rollback and preservation in a new disposable directory. tests/UpdaterProcessTests.ps1 -Package <extracted-package> -TestRoot <new-disposable-directory> checks the real helper/launcher handshake, waiting for app exit, replacement, restart and automatic cleanup using a harmless stub Java process; it does not update the installed application or publish a simulated release.
+
+## Beta 8 refresh preference and desktop lifecycle
+
+The optional ARM64 refresh wrapper replaces `xrRequestDisplayRefreshRateFB` preferences with 0 (OpenXR: application has no preference). The runtime chooses the system rate. This is not an unconditional 72/80/90 Hz override: firmware policy, alternate APIs, or a game-specific frame limiter can still determine the result. Actual HMD-setting behavior requires an on-device game test. Actual-rate queries, frame pacing, SpaceWarp configuration and submission data are not changed. Native mock tests cover direct calls, resolver calls, result/error forwarding and repeated loader lookup. See `native/refresh_tests.cpp`; build with `native/build_native.py --tests` and run in an isolated device directory with the mock original and production wrapper under its installed name.
+
+Patch order is base replacements, basic passthrough, scene/spatial, stereo, then refresh. Restore wrappers in reverse order. `RefreshPatchTests.java` covers signed export, immediate Windows file release and rollback; `MrPatchTests.java` covers all four optional loader layers together. `DesktopInstanceTests.java` tests workspace-wide locking across JVMs and after a forced process exit. The lock is acquired before the desktop UI/cache is opened and released by process exit, so the update helper can restart the app normally.
+
+Keep release artifacts in `dist/releases/<version>/` inside this repository. Archived pre-release experiments live under `dist/archive/`; game projects must not contain patcher distributions.

@@ -44,8 +44,10 @@ fun PatcherScreen(
         saveFlow.collect { stream ->
             val outputStream = stream ?: return@collect
             try {
-                viewModel.process(patches)
-                viewModel.export(outputStream)
+                outputStream.use {
+                    viewModel.process(patches)
+                    viewModel.export(it)
+                }
                 scope.launch {
                     snackbarHostState.showSnackbar(getString(Res.string.apk_file_exported))
                 }
@@ -54,7 +56,6 @@ fun PatcherScreen(
                 errorMessage = getString(Res.string.unknown_error) to ex.stackTraceToString()
             } finally {
                 viewModel.cancel()
-                //outputStream.close()
             }
         }
     }

@@ -37,11 +37,12 @@ class MainViewModel(val dataDirectory: File, platformIconResizer: IconResizer) :
 
     private suspend fun usePatcher(block: suspend PatcherContext.() -> Unit) {
         working = true
-        withContext(Dispatchers.IO) {
-            patcherState?.block()
+        try {
+            withContext(Dispatchers.IO) { patcherState?.block() }
+        } finally {
+            working = false
+            currentProgress = null
         }
-        working = false
-        currentProgress = null
     }
 
     suspend fun checkout(overportVersion: String, fileName: String) {
@@ -82,18 +83,21 @@ class MainViewModel(val dataDirectory: File, platformIconResizer: IconResizer) :
         usePatcher {
             currentProgress = getString(Res.string.progress_compiling)
             currentProgressFloat = 0.75f
-            export(outputStream)
+            exportAndClose(outputStream)
         }
     }
 
     suspend fun cancel() {
-        usePatcher {
-            currentProgress = getString(Res.string.progress_cleaning)
-            currentProgressFloat = 1.0f
-            cleanup()
+        try {
+            usePatcher {
+                currentProgress = getString(Res.string.progress_cleaning)
+                currentProgressFloat = 1.0f
+                cleanup()
+            }
+        } finally {
+            currentProgressFloat = null
+            patcherState = null
         }
-        currentProgressFloat = null
-        patcherState = null
     }
 
     fun currentAppName(): String? {

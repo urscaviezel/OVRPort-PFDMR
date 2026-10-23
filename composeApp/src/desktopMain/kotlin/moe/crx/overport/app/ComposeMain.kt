@@ -30,7 +30,14 @@ import java.awt.datatransfer.DataFlavor
 import java.io.*
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
-fun main(args: Array<String>) = application {
+fun main(args: Array<String>) {
+    val instance = moe.crx.overport.pfdmr.DesktopInstance.acquire(defaultWorkspace().parentFile.toPath())
+    if (instance == null) {
+        javax.swing.JOptionPane.showMessageDialog(null, "OVRPort PFDMR Edition is already running.", "OVRPort PFDMR Edition", javax.swing.JOptionPane.INFORMATION_MESSAGE)
+        return
+    }
+    Runtime.getRuntime().addShutdownHook(Thread { instance.close() })
+    application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "OVRPort PFDMR Edition ${moe.crx.overport.versions.VersionManager.EDITION_VERSION}",
@@ -131,4 +138,5 @@ fun main(args: Array<String>) = application {
             )
         }
     }
+}
 }

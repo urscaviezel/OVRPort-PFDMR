@@ -57,6 +57,8 @@ class PatcherContext(
     }
 
     fun prepare(stream: InputStream) {
+        workingApk?.close()
+        workingApk = null
         dataDir.mkdirs()
 
         workingDir.deleteRecursively()
@@ -99,17 +101,23 @@ class PatcherContext(
             }
         }
 
-        decoder.sanitizeFilePaths()
-        decoder.decode(workingDir)
-
-        workingApk = apk
+        try {
+            decoder.sanitizeFilePaths()
+            decoder.decode(workingDir)
+            workingApk = apk
+        } catch (error: Throwable) {
+            apk.close()
+            throw error
+        }
     }
 
     fun patch(
         args: Map<String, List<String>>,
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
+        moe.crx.overport.pfdmr.VulkanHeapPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.QuestGatePatch.restore(workingDir.toPath())
+        moe.crx.overport.pfdmr.RefreshRatePatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.StereoPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.MrCompatibilityPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.BasicPassthroughPatch.restore(workingDir.toPath())
@@ -120,7 +128,10 @@ class PatcherContext(
         mrOrdered.remove(moe.crx.overport.pfdmr.MrCompatibilityPatch.ID)?.let {
             mrOrdered[moe.crx.overport.pfdmr.MrCompatibilityPatch.ID] = it
         }
-        val orderedArgs = moe.crx.overport.pfdmr.StereoPatch.prepare(this, mrOrdered)
+        val orderedArgs = LinkedHashMap(moe.crx.overport.pfdmr.StereoPatch.prepare(this, mrOrdered))
+        orderedArgs.remove(moe.crx.overport.pfdmr.RefreshRatePatch.ID)?.let {
+            orderedArgs[moe.crx.overport.pfdmr.RefreshRatePatch.ID] = it
+        }
         moe.crx.overport.pfdmr.UnrealAudioPatch.prepare(workingDir.toPath(), args.containsKey(moe.crx.overport.pfdmr.UnrealAudioPatch.ID))
         val patches = orderedArgs.keys.mapNotNull { PatchStore.get(it) }
         val needsConfig = patches.any { it.requiresOverportConfig }
@@ -142,6 +153,10 @@ class PatcherContext(
                 patches = patches.map { it.name }
             )
         }
+    }
+
+    fun exportAndClose(stream: OutputStream) {
+        stream.use { export(it) }
     }
 
     fun export(stream: OutputStream) {
@@ -170,9 +185,10 @@ class PatcherContext(
 
         encoder.scanDirectory(workingDir)
         encoder.apkModule.run {
-            zipEntryMap.autoSortApkFiles()
-            writeApk(outputApk)
-            close()
+            try {
+                zipEntryMap.autoSortApkFiles()
+                writeApk(outputApk)
+            } finally { close() }
         }
 
         val signatureDir = patcherDirectory.resolve("signatures")
@@ -205,9 +221,9 @@ class PatcherContext(
     }
 
     fun cleanup() {
-        workingDir.deleteRecursively()
         workingApk?.close()
         workingApk = null
+        workingDir.deleteRecursively()
         inputApk.delete()
         outputApk.delete()
     }

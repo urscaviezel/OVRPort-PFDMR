@@ -27,6 +27,8 @@ object PatchStore {
 
     init {
         register(PATCH_PFDMR_OPENXR_PERMISSION)
+        register(moe.crx.overport.pfdmr.VulkanHeapPatch.PATCH)
+        register(moe.crx.overport.pfdmr.RefreshRatePatch.PATCH)
         register(moe.crx.overport.pfdmr.StereoPatch.PATCH)
         register(moe.crx.overport.pfdmr.UnrealAudioPatch.PATCH)
         register(moe.crx.overport.pfdmr.QuestGatePatch.PATCH)

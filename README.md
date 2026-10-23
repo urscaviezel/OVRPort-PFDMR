@@ -1,10 +1,12 @@
 # OVRPort PFDMR Edition
 
-**0.1.0-beta.7 · Experimental beta · Windows x64 · Java included**
+**0.1.0-beta.8 · Experimental beta · Windows x64 · Java included**
 
 An unofficial fork of [OVRPort](https://github.com/ovrport/app) for Play For Dream MR.
 
 - PFDMR OpenXR compatibility option.
+- Optional headset refresh-rate preference.
+- Vulkan heap compatibility for verified builds.
 - Optional parallel-eye stereo correction.
 - Optional Unreal audio correction at 48 kHz.
 - Optional Unreal fix for legacy Quest startup checks and controller mappings.
