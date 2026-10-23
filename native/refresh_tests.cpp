@@ -2,6 +2,8 @@
 #include <dlfcn.h>
 #include <cstdio>
 #include <cstdlib>
+#include <initializer_list>
+#include "mock_refresh_jni.h"
 static void check(bool ok,const char* message){if(!ok){fprintf(stderr,"FAIL %s\n",message);exit(1);}printf("PASS %s\n",message);}
 int main(){
     void* wrapper=dlopen("./libopenxr_loader.so",RTLD_NOW|RTLD_LOCAL);check(wrapper,"load refresh wrapper");
@@ -24,4 +26,12 @@ int main(){
     auto recordedEnd=(const XrFrameEndInfo*(*)())dlsym(original,"recordedEnd");
     check(end((XrSession)1,&info)==XR_SUCCESS&&recordedEnd()==&info&&info.next==&spacewarp,"frame and SpaceWarp data forwarded untouched");
     check(dlsym(dlopen("libopenxr_loader.so",RTLD_NOW|RTLD_LOCAL),"xrRequestDisplayRefreshRateFB")==reinterpret_cast<void*>(request),"reopened loader retains refresh wrapper");
+    struct AndroidInfo{XrStructureType type;const void* next;void* vm;void* context;};
+    AndroidInfo android{XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR,nullptr,mockJavaVm(),reinterpret_cast<void*>(1)};
+    XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};createInfo.next=&android;XrInstance instance;
+    auto create=(PFN_xrCreateInstance)dlsym(wrapper,"xrCreateInstance");
+    check(create(&createInfo,&instance)==XR_SUCCESS,"capture Android context without changing instance creation");
+    for(int hz:{72,80,90}){mockHz=hz;check(request((XrSession)1,90)==XR_SESSION_LOSS_PENDING&&recorded()==hz,"forward current HMD selection, including changes after startup");}
+    mockHz=999;request((XrSession)1,90);check(recorded()==0,"unknown setting falls back to runtime preference");
+    mockHz=72;mockFail=true;request((XrSession)1,90);check(recorded()==0&&!mockException,"settings exception cleared with safe fallback");
 }

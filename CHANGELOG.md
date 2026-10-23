@@ -2,7 +2,7 @@
 
 ## 0.1.0-beta.8
 
-- Add optional system-preferred display refresh rate; leave SpaceWarp unchanged.
+- Add optional HMD refresh-rate preference using the saved headset setting; leave SpaceWarp unchanged.
 - Add Vulkan heap compatibility for a verified engine build.
 - Prevent multiple desktop instances sharing the same workspace.
 - Release exported APK files immediately and close archives before cleanup.

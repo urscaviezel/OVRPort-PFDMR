@@ -2,6 +2,7 @@
 #include <cstring>
 static float last=123;
 static const XrFrameEndInfo* endInfo=nullptr;
+extern "C" XrResult xrCreateInstance(const XrInstanceCreateInfo*,XrInstance* instance){*instance=(XrInstance)1;return XR_SUCCESS;}
 extern "C" float recordedRate(){return last;}
 extern "C" const XrFrameEndInfo* recordedEnd(){return endInfo;}
 extern "C" XrResult xrRequestDisplayRefreshRateFB(XrSession session,float rate){last=rate;return session?XR_SESSION_LOSS_PENDING:XR_ERROR_HANDLE_INVALID;}

@@ -29,9 +29,11 @@ extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrCreateActionSpace(
     XrSession                                   session,
     const XrActionSpaceCreateInfo*              createInfo,
     XrSpace*                                    space) { auto fn=(PFN_xrCreateActionSpace)sym("xrCreateActionSpace"); return fn ? fn(session, createInfo, space) : XR_ERROR_FUNCTION_UNSUPPORTED; }
+#ifndef PFDMR_CUSTOM_CREATE_INSTANCE
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrCreateInstance(
     const XrInstanceCreateInfo*                 createInfo,
     XrInstance*                                 instance) { auto fn=(PFN_xrCreateInstance)sym("xrCreateInstance"); return fn ? fn(createInfo, instance) : XR_ERROR_FUNCTION_UNSUPPORTED; }
+#endif
 extern "C" XRAPI_ATTR XrResult XRAPI_CALL xrCreateReferenceSpace(
     XrSession                                   session,
     const XrReferenceSpaceCreateInfo*           createInfo,

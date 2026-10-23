@@ -14,7 +14,7 @@ base = [str(compiler), '--target=aarch64-linux-android29', '-O2', '-std=c++17', 
 subprocess.run(base+['-shared','-fPIC',str(root/'stereo.cpp'),str(root/'forward.cpp'),'-ldl','-llog',
     '-Wl,-Bsymbolic','-Wl,-soname,libopenxr_loader.so','-Wl,-z,max-page-size=16384','-static-libstdc++','-o',str(out)],check=True)
 refresh = out.parent/'libpfdmr_refresh.so'
-subprocess.run(base+['-shared','-fPIC',str(root/'refresh.cpp'),str(root/'forward.cpp'),'-ldl',
+subprocess.run(base+['-DPFDMR_CUSTOM_CREATE_INSTANCE','-shared','-fPIC',str(root/'refresh.cpp'),str(root/'forward.cpp'),'-ldl','-llog',
     '-Wl,-Bsymbolic','-Wl,-soname,libopenxr_loader.so','-Wl,-z,max-page-size=16384','-static-libstdc++','-o',str(refresh)],check=True)
 print(out)
 if a.tests:
