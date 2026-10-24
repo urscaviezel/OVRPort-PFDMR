@@ -125,7 +125,7 @@ Unreal hook installation occurs before the underlying xrCreateInstance. Both pro
 Beta 9 validation: 62 native profile checks passed on the connected ARM64 headset, including an actual atomic-branch/relay/trampoline execution, pre-forward camera publication and completed-task handling without a stale pointer dereference. All 20 v1.9 MR pipeline regression checks passed; the refresh wrapper retained all 27 native checks. The profile combined APK test passed 20 checks (signed output, all five loader layers, rollback and tamper rejection). Fresh user headset gameplay testing remains pending.
 
 
-## Beta 10 local test build
+## Beta 10
 
 Build the settings helper with `python spatial-helper/build_helper.py --jdk <JDK21> --sdk <AndroidSDK>` before the desktop JAR. The checked-in Java source compiles into the three bundled SpatialSettings smali classes. No Python or UnityPy is needed by the distributed patcher.
 
@@ -142,6 +142,8 @@ Local validation commands (compile Java tests against the final desktop JAR):
 - `Beta10FreshTests <disposable-directory> <original.apk> <existing-cache> <library-version> [vader]` copies only installed-library metadata/libraries into its disposable cache and checks standard patches plus the new profile; no existing user signing keys are used.
 - `python tests/verify_spatial_objects.py <UnityPy-directory> <baseline.apk> <working-reference.apk> <patcher-output.apk>` independently checks every Unity object and resource stream.
 
-Beta 10 remains local until the user confirms fresh headset tests and authorizes publication. No game installation or launch is part of the desktop packaging tests.
+Beta 10 publication was authorized after the user confirmed fresh headset tests. No game installation or launch is part of the desktop packaging tests.
 
 Beta 10 desktop validation (2026-10-24): 32 Vader checks, 14 Spatial profile checks, 20 generic MR regression checks and 20 Pinball 1.10 regression checks passed. Fresh original APKs for Vader I and Spatial Zombies passed standard-patch integration and signed export using cached upstream libraries 3.4.3-aa54c3f; Vader also passed signed reimport/rollback. The fresh Vader I engine is byte-identical to the working Dojo-fix reference. Independent UnityPy inspection confirmed all 106,461 objects match the Spatial working reference, exactly five objects differ from baseline, and all six resource streams are unchanged. These are packaging/static checks; fresh Beta 10 headset validation remains with the user.
+
+Beta 10 headset validation (2026-10-24): the user confirmed freshly patched Vader Immortal and Spatial Zombies work and authorized the GitHub prerelease. This confirmation does not specify separate coverage of every Vader episode.
