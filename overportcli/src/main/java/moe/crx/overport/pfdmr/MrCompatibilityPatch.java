@@ -122,32 +122,34 @@ public final class MrCompatibilityPatch {
             }
             Properties p=new Properties();try(var in=Files.newInputStream(receipt.resolve("receipt.properties"))){p.load(in);}
             if(!"1".equals(p.getProperty("version")))throw fail("Unknown rollback format.");
-            byte[][] originals=new byte[4][];
-            Path[] targets=new Path[4];
-            for(int i=0;i<4;i++) {
+            int count="true".equals(p.getProperty("nativeOnly"))?2:4;
+            byte[][] originals=new byte[count][];
+            Path[] targets=new Path[count];
+            for(int i=0;i<count;i++) {
                 targets[i]=i<2?lib.resolve(LOADERS[i]):findClass(ws,CLASSES[i-2]);
                 originals[i]=Files.readAllBytes(i<2?lib.resolve(BACKUPS[i]):receipt.resolve(CLASSES[i-2]+".original"));
                 checkHash(originals[i],p,"before"+i);
                 byte[] current=i<2?Files.readAllBytes(targets[i]):Files.readString(targets[i]).replace("\r\n","\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
                 checkHash(current,p,"after"+i);
             }
-            Path bridge=targets[2].resolveSibling(BRIDGE+".smali");
-            checkHash(Files.readString(bridge).replace("\r\n","\n").getBytes(java.nio.charset.StandardCharsets.UTF_8),p,"bridge");
+            Path bridge=count==4?targets[2].resolveSibling(BRIDGE+".smali"):null;
+            if(bridge!=null)checkHash(Files.readString(bridge).replace("\r\n","\n").getBytes(java.nio.charset.StandardCharsets.UTF_8),p,"bridge");
             JSONObject doc=manifest(ws);
             if("true".equals(p.getProperty("addedPermission"))) {
                 JSONArray nodes=rootNodes(doc);
                 for(int i=nodes.length()-1;i>=0;i--)if(isPermission(nodes.optJSONObject(i)))nodes.remove(i);
             }
             // All checks completed before touching any original.
-            for(int i=0;i<4;i++)Files.write(targets[i],originals[i]);
+            for(int i=0;i<count;i++)Files.write(targets[i],originals[i]);
             Files.writeString(ws.resolve("AndroidManifest.xml.json"),doc.toString());
-            Files.delete(bridge);
+            if(bridge!=null)Files.delete(bridge);
             for(String name:BACKUPS)Files.delete(lib.resolve(name));
-            for(String name:CLASSES)Files.delete(receipt.resolve(name+".original"));
+            if(count==4)for(String name:CLASSES)Files.delete(receipt.resolve(name+".original"));
             Files.delete(receipt.resolve("receipt.properties"));Files.delete(receipt);
         } catch(IOException ex){throw fail(ex.toString());}
     }
-    public static void apply(Path ws) {
+    public static void apply(Path ws) { apply(ws,false); }
+    public static void apply(Path ws,boolean nativeOnly) {
         Path lib=ws.resolve("root/lib/arm64-v8a"), receipt=ws.resolve(RECEIPT);
         try {
             restore(ws);
@@ -156,8 +158,9 @@ public final class MrCompatibilityPatch {
             }
             for(String name:List.of("liboverport_original.so","libopenxr_loader_yvr_original.so",StereoPatch.BACKUP))
                 if(Files.exists(lib.resolve(name)))throw fail("Existing wrapper chain; restore it before applying MR compatibility.");
-            byte[][] original=new byte[4][], updated=new byte[4][];
-            Path[] targets=new Path[4];
+            int count=nativeOnly?2:4;
+            byte[][] original=new byte[count][], updated=new byte[count][];
+            Path[] targets=new Path[count];
             for(int i=0;i<2;i++) {
                 targets[i]=lib.resolve(LOADERS[i]);original[i]=Files.readAllBytes(targets[i]);
                 String image=new String(original[i],java.nio.charset.StandardCharsets.ISO_8859_1);
@@ -168,28 +171,31 @@ public final class MrCompatibilityPatch {
                 Set<String> exports=StereoPatch.exports(original[i]);
                 if(!exports.contains("xrGetInstanceProcAddr") || !StereoPatch.exports(updated[i]).containsAll(exports))throw fail("Unsupported direct loader exports.");
             }
-            for(int i=2;i<4;i++) {
+            for(int i=2;i<count;i++) {
                 targets[i]=findClass(ws,CLASSES[i-2]);
                 original[i]=Files.readString(targets[i]).replace("\r\n","\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
                 String s=new String(original[i],java.nio.charset.StandardCharsets.UTF_8);
                 updated[i]=(i==2?patchHelper(s):patchFragment(s)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
             }
+            Path bridge=null;byte[] bridgeBytes=null;
+            if(!nativeOnly){
             if(!targets[2].getParent().equals(targets[3].getParent()))throw fail("Split permission classes are unsupported.");
-            Path bridge=targets[2].resolveSibling(BRIDGE+".smali");
+            bridge=targets[2].resolveSibling(BRIDGE+".smali");
             if(Files.exists(bridge))throw fail("Permission helper collision.");
-            byte[] bridgeBytes=resource("mr/"+BRIDGE+".smali");
+            bridgeBytes=resource("mr/"+BRIDGE+".smali");
             byte[][] canonical=canonicalize(ws,updated[2],updated[3],bridgeBytes);
             updated[2]=canonical[0];updated[3]=canonical[1];bridgeBytes=canonical[2];
+            }
             JSONObject doc=manifest(ws);boolean added=addPermission(doc);
-            Properties p=new Properties();p.setProperty("version","1");p.setProperty("addedPermission",""+added);
-            for(int i=0;i<4;i++){p.setProperty("before"+i,StereoPatch.sha256(original[i]));p.setProperty("after"+i,StereoPatch.sha256(updated[i]));}
-            p.setProperty("bridge",StereoPatch.sha256(bridgeBytes));
+            Properties p=new Properties();p.setProperty("version","1");p.setProperty("addedPermission",""+added);p.setProperty("nativeOnly",""+nativeOnly);
+            for(int i=0;i<count;i++){p.setProperty("before"+i,StereoPatch.sha256(original[i]));p.setProperty("after"+i,StereoPatch.sha256(updated[i]));}
+            if(bridgeBytes!=null)p.setProperty("bridge",StereoPatch.sha256(bridgeBytes));
             // Preflight complete; originals persist inside the APK for reversible re-patching.
             Files.createDirectories(receipt);
-            for(int i=0;i<4;i++)Files.write(i<2?lib.resolve(BACKUPS[i]):receipt.resolve(CLASSES[i-2]+".original"),original[i],StandardOpenOption.CREATE_NEW);
+            for(int i=0;i<count;i++)Files.write(i<2?lib.resolve(BACKUPS[i]):receipt.resolve(CLASSES[i-2]+".original"),original[i],StandardOpenOption.CREATE_NEW);
             try(var out=Files.newOutputStream(receipt.resolve("receipt.properties"))){p.store(out,"PFDMR MR rollback");}
-            for(int i=0;i<4;i++)Files.write(targets[i],updated[i]);
-            Files.write(bridge,bridgeBytes);Files.writeString(ws.resolve("AndroidManifest.xml.json"),doc.toString());
+            for(int i=0;i<count;i++)Files.write(targets[i],updated[i]);
+            if(bridge!=null)Files.write(bridge,bridgeBytes);Files.writeString(ws.resolve("AndroidManifest.xml.json"),doc.toString());
         } catch(IOException ex){throw fail(ex.toString());}
     }
 }

@@ -1,4 +1,4 @@
-# Building 0.1.0-beta.8 from source
+# Building 0.1.0-beta.10 from source
 
 This beta release builds from this repository, without binary overlay patching or a private v4/v5 JAR.
 
@@ -29,8 +29,8 @@ python scripts/collect_licenses.py
 **Build native first.** Its output in `overportcli/src/main/resources/pfdmr/arm64-v8a/` is embedded in the desktop JAR under `composeApp/build/compose/jars/`.
 
 ```powershell
-& "$env:JAVA_HOME\bin\java.exe" -jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.8.jar'
-python scripts/package_windows.py --jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.8.jar' --jre 'C:\path\to\jre-17.0.20.1+1' --output dist
+& "$env:JAVA_HOME\bin\java.exe" -jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.10.jar'
+python scripts/package_windows.py --jar 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.10.jar' --jre 'C:\path\to\jre-17.0.20.1+1' --output dist
 ```
 
 Packaging compiles `launcher/Launcher.cs`, copies the runtime/notices and verifies the ZIP. The Windows EXE is not signed. APK signing uses the upstream per-package signing store.
@@ -40,7 +40,7 @@ Packaging compiles `launcher/Launcher.cs`, copies the runtime/notices and verifi
 Run against the final JAR, a disposable workspace, a reference ARM64 loader and a local APK you own. Tests create a disposable signing key and never install the APK:
 
 ```powershell
-$jar = 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.8.jar'
+$jar = 'composeApp/build/compose/jars/composeApp-windows-x64-0.1.0-beta.10.jar'
 & "$env:JAVA_HOME\bin\javac.exe" --release 17 -encoding UTF-8 -cp $jar -d tests/build tests/StereoTests.java
 & "$env:JAVA_HOME\bin\java.exe" -Xverify:all -cp "tests/build;$jar" StereoTests test-work 'C:\path\to\libopenxr_loader.so' 'C:\path\to\owned-test.apk'
 ```
@@ -60,7 +60,7 @@ The legacy VR regression test (`tests/LegacyVrTests.java`) covers MAIN/INFO hand
 
 Upstream history is retained from commit `1c7cb335c81369fbfd2957ad0edcb238956a8e3c`. The upstream vendored JARs are ARSCLib 1.4.0 and smali/baksmali 2.5.2; source archives accompany the release. Maven versions are pinned in `gradle/libs.versions.toml` and recorded in the generated dependency inventory. Runtime sources are identified in `THIRD-PARTY-NOTICES.md`.
 
-Build version: **0.1.0-beta.8**. `VersionManager.VERSION` deliberately remains **1.2.3** for upstream library compatibility checks; `EDITION_VERSION` is the fork's release version.
+Build version: **0.1.0-beta.10**. `VersionManager.VERSION` deliberately remains **1.2.3** for upstream library compatibility checks; `EDITION_VERSION` is the fork's release version.
 
 ## Optional MR validation
 
@@ -123,3 +123,25 @@ Unreal hook installation occurs before the underlying xrCreateInstance. Both pro
 `Pinball110PatchTests.java` takes a fresh disposable directory and the local v1.10 base APK. It checks selection dependencies, guarded identity, wrapper order, combined signed export/reimport/rollback, unchanged config and tamper rejection. User headset validation of the newly integrated build is still required; the standalone v20 gameplay result alone does not validate this packaging.
 
 Beta 9 validation: 62 native profile checks passed on the connected ARM64 headset, including an actual atomic-branch/relay/trampoline execution, pre-forward camera publication and completed-task handling without a stale pointer dereference. All 20 v1.9 MR pipeline regression checks passed; the refresh wrapper retained all 27 native checks. The profile combined APK test passed 20 checks (signed output, all five loader layers, rollback and tamper rejection). Fresh user headset gameplay testing remains pending.
+
+
+## Beta 10 local test build
+
+Build the settings helper with `python spatial-helper/build_helper.py --jdk <JDK21> --sdk <AndroidSDK>` before the desktop JAR. The checked-in Java source compiles into the three bundled SpatialSettings smali classes. No Python or UnityPy is needed by the distributed patcher.
+
+Two new options default off. The Vader audio mixer profile is separate from the 48-kHz option and runs after existing engine edits; its receipt restores before the Quest/Vulkan receipts. Known episode/version identities, executable ARM64 ranges and the full unique 372-byte mixer signature gate the single-instruction edit. Independently prepatched mixers remain intact on deselection.
+
+The Spatial Zombies 1.2.8.5 (154) profile includes the native scene adapters; selecting the generic scene option as well does not install a second layer. Its IL2CPP permission/settings literals, MRUK validity check, three detached controller profiles and two preview materials match the working game-project reference. Settings navigation uses the public PFDM focus-aware menu API, a regular Home fallback, debouncing and lifecycle-checked delayed navigation. Controller pitch remains the game's own setting. No test tracing layers are bundled.
+
+`UnityBundlePatch` reads only affected UnityFS blocks, copies all untouched compressed blocks, and modifies the five verified objects without serializing other objects. Enlarged material objects are appended to their serialized file and its object table/directory are updated. Changed blocks are stored without compression; compact rollback data retains their original compressed representation and header, allowing byte-exact restoration without duplicating the 580-MB bundle. The checked-in 4-KB recipe contains offsets, hashes and edited bytes, not whole game assets. `scripts/generate_spatial_profile.py --game-root <owned-game-project>` reproduces it using that project's build-time UnityPy dependency and owned reference APKs.
+
+Local validation commands (compile Java tests against the final desktop JAR):
+
+- `Beta10PatchTests vader <disposable-directory> <episode1-base.apk> <episode2-base.apk> <episode3-base.apk>` checks all three signatures, exact changes, Quest composition, prepatched inputs and rejection.
+- `Beta10PatchTests spatial <disposable-directory> <baseline-PFDMR.apk>` checks combined wrapper ordering, signed export/reimport, compact receipts and exact restoration.
+- `Beta10FreshTests <disposable-directory> <original.apk> <existing-cache> <library-version> [vader]` copies only installed-library metadata/libraries into its disposable cache and checks standard patches plus the new profile; no existing user signing keys are used.
+- `python tests/verify_spatial_objects.py <UnityPy-directory> <baseline.apk> <working-reference.apk> <patcher-output.apk>` independently checks every Unity object and resource stream.
+
+Beta 10 remains local until the user confirms fresh headset tests and authorizes publication. No game installation or launch is part of the desktop packaging tests.
+
+Beta 10 desktop validation (2026-10-24): 32 Vader checks, 14 Spatial profile checks, 20 generic MR regression checks and 20 Pinball 1.10 regression checks passed. Fresh original APKs for Vader I and Spatial Zombies passed standard-patch integration and signed export using cached upstream libraries 3.4.3-aa54c3f; Vader also passed signed reimport/rollback. The fresh Vader I engine is byte-identical to the working Dojo-fix reference. Independent UnityPy inspection confirmed all 106,461 objects match the Spatial working reference, exactly five objects differ from baseline, and all six resource streams are unchanged. These are packaging/static checks; fresh Beta 10 headset validation remains with the user.

@@ -1,0 +1,147 @@
+{
+  "bundle": "1ad09f1553f530b989174ffd4b82dcc5feed1fa118e2fc40ab60fc1e8d3f3ed7",
+  "metadata": "bd56fc56cc978e2ba9927bf98ac2c921f7bfa3af90399e0457cc7a0183a2e94c",
+  "metadataAfter": "f6022d98e0e56aed1238d3e2585a3fdfa6624aed0ae2a91da49525414aed1d93",
+  "objects": [
+    {
+      "file": "globalgamemanagers.assets",
+      "id": 7058,
+      "start": 1256240,
+      "size": 276,
+      "table": 172568,
+      "dataOffset": 175296,
+      "fileSize": 1283632,
+      "before": "b026f80aeaad47e3b9bc5c68f71b60319ab674003ab7fd0f39aaa41b78ba79b6",
+      "after": "10789e555c1778e914e56886405873ee21a82f482b184c2bb8c4dd58dba81708",
+      "edits": [
+        {
+          "offset": 84,
+          "remove": 1,
+          "data": "00"
+        }
+      ]
+    },
+    {
+      "file": "globalgamemanagers.assets",
+      "id": 7063,
+      "start": 1257216,
+      "size": 256,
+      "table": 172688,
+      "dataOffset": 175296,
+      "fileSize": 1283632,
+      "before": "1d2c9e64b454be21bbd1c30d58782c05cbdd6b6a9ed7978d8048c95a36d88821",
+      "after": "7426514691fc5971c1515a146391ac68044c7e7c4df3e6fdb30a8ac67292c7d6",
+      "edits": [
+        {
+          "offset": 76,
+          "remove": 1,
+          "data": "00"
+        }
+      ]
+    },
+    {
+      "file": "globalgamemanagers.assets",
+      "id": 7092,
+      "start": 1276352,
+      "size": 272,
+      "table": 173384,
+      "dataOffset": 175296,
+      "fileSize": 1283632,
+      "before": "fd93209050b974fc342874ae1f14548bc19753af01fe14408228c2304abf4ec8",
+      "after": "f08ceabaf3f2b71eb09dbf62764d9c94828db24ac779035a1734d25cfca263fa",
+      "edits": [
+        {
+          "offset": 84,
+          "remove": 1,
+          "data": "00"
+        }
+      ]
+    },
+    {
+      "file": "sharedassets0.assets",
+      "id": 163,
+      "start": 1270352,
+      "size": 284,
+      "table": 14328,
+      "dataOffset": 642864,
+      "fileSize": 151135992,
+      "before": "1a335f52b45d8fc014278a9172e1d0b7380df9beb571859f390c29eaf532a7e2",
+      "after": "485ff670077dbb4dd87eef3d4779b0e49a5974f1db3f8c458fd513802c97d69f",
+      "edits": [
+        {
+          "offset": 52,
+          "remove": 4,
+          "data": "1c0c0000"
+        },
+        {
+          "offset": 143,
+          "remove": 1,
+          "data": "00"
+        },
+        {
+          "offset": 184,
+          "remove": 4,
+          "data": "295c0f3d"
+        },
+        {
+          "offset": 226,
+          "remove": 2,
+          "data": "0041"
+        },
+        {
+          "offset": 268,
+          "remove": 3,
+          "data": "666626"
+        }
+      ]
+    },
+    {
+      "file": "sharedassets0.assets",
+      "id": 164,
+      "start": 1270640,
+      "size": 240,
+      "table": 14352,
+      "dataOffset": 642864,
+      "fileSize": 151135992,
+      "before": "da786f384d58f3edd55e591a26bdc24d57f6af7db5a7d64201d6b8d95d9a8b44",
+      "after": "54eaffbe4752900b38e14d8abfed1d25a633c2e7ebc6b14d70d19f63f8afdef1",
+      "edits": [
+        {
+          "offset": 28,
+          "remove": 1,
+          "data": "b9"
+        },
+        {
+          "offset": 52,
+          "remove": 4,
+          "data": "120c"
+        },
+        {
+          "offset": 72,
+          "remove": 1,
+          "data": "000008"
+        },
+        {
+          "offset": 143,
+          "remove": 1,
+          "data": "00"
+        },
+        {
+          "offset": 182,
+          "remove": 2,
+          "data": "0041"
+        },
+        {
+          "offset": 200,
+          "remove": 1,
+          "data": "0a0000005f477269645363616c650000000040400e0000005f47726964546869636b6e6573730000295c0f3d02"
+        },
+        {
+          "offset": 236,
+          "remove": 0,
+          "data": "0a0000005f47726964436f6c6f7200003333b33e3333b33e3333b33e0000803f"
+        }
+      ]
+    }
+  ]
+}

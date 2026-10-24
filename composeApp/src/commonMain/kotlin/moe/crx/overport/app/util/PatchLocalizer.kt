@@ -43,6 +43,8 @@ object PatchLocalizer {
         if (patch.name == moe.crx.overport.pfdmr.QuestGatePatch.ID) return moe.crx.overport.pfdmr.QuestGatePatch.LABEL
         if (patch.name == moe.crx.overport.pfdmr.VulkanHeapPatch.ID) return moe.crx.overport.pfdmr.VulkanHeapPatch.LABEL
         if (patch.name == moe.crx.overport.pfdmr.UnrealObbPatch.ID) return moe.crx.overport.pfdmr.UnrealObbPatch.LABEL
+        if (patch.name == moe.crx.overport.pfdmr.VaderAudioPatch.ID) return moe.crx.overport.pfdmr.VaderAudioPatch.LABEL
+        if (patch.name == moe.crx.overport.pfdmr.SpatialZombiesPatch.ID) return moe.crx.overport.pfdmr.SpatialZombiesPatch.LABEL
         return LOCALIZED_PATCHES[patch]?.let {
             stringResource(it)
         } ?: patch.name

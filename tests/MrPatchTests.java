@@ -10,7 +10,7 @@ public class MrPatchTests {
  public static void main(String[] args)throws Exception {
   Path run=Path.of(args[0]),input=Path.of(args[1]);Files.createDirectories(run);
   var patch=PatchStore.INSTANCE.get(MrCompatibilityPatch.ID);check(patch!=null&&!patch.isRecommended()&&!patch.getRequiresOverportConfig(),"registered, optional, defaults off");
-  check(PatchStore.INSTANCE.all().size()==31,"all patches retained");
+  check(PatchStore.INSTANCE.all().size()==33,"all patches retained");
   var ctx=new PatcherContext("3.4.3-23204ea",run.resolve("cache").toFile(),"Owned.apk","{filename}.MR.{ext}");
   try(var in=Files.newInputStream(input)){ctx.prepare(in);}Path ws=ctx.getWorkingDir().toPath();var before=smali(ws);
   byte[] engine=entry(input,"lib/arm64-v8a/libUnreal.so");

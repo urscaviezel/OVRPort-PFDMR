@@ -70,11 +70,7 @@ public final class Pinball110Patch {
             Path loader=ws.resolve(LIB+LOADER),backup=ws.resolve(LIB+BACKUP),receipt=ws.resolve(RECEIPT),mruk=ws.resolve(LIB+"libmrutilitykitshared.so");
             byte[] original=Files.readAllBytes(loader),m=Files.readAllBytes(mruk),wrapper;
             String before=StereoPatch.sha256(m);
-            if(MRUK_BEFORE.equals(before)) {
-                if(!Arrays.equals(BEFORE,Arrays.copyOfRange(m,OFFSET,OFFSET+BEFORE.length)))throw fail("Unexpected MRUK instructions.");
-                System.arraycopy(AFTER,0,m,OFFSET,AFTER.length);
-            }
-            if(!MRUK_AFTER.equals(StereoPatch.sha256(m)))throw fail("MRUK patch validation failed.");
+            m=MrukPosePatch.apply(m,MrukPosePatch.PINBALL);
             try(var in=Pinball110Patch.class.getResourceAsStream("/pfdmr/arm64-v8a/libpfdmr_pinball110.so")){
                 if(in==null)throw fail("Bundled compatibility wrapper missing.");wrapper=in.readAllBytes();
             }

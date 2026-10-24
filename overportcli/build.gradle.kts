@@ -27,6 +27,11 @@ tasks.test {
 
 tasks.processResources {
     doFirst {
+        listOf("profile.json", "SpatialSettings.smali", "SpatialSettings\$1.smali", "SpatialSettings\$2.smali").forEach {
+            check(file("src/main/resources/pfdmr/spatial-zombies/$it").isFile) {
+                "Build the spatial helper first: python spatial-helper/build_helper.py --jdk <JDK> --sdk <SDK>"
+            }
+        }
         listOf("libpfdmr_mr_dispatch.so", "libpfdmr_mr_yvr.so").forEach {
             check(file("src/main/resources/pfdmr/arm64-v8a/$it").isFile) {
                 "Build the MR wrappers first: python native/mr/build_mr.py --ndk <NDK path>"

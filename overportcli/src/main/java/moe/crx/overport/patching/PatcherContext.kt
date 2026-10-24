@@ -115,16 +115,27 @@ class PatcherContext(
         args: Map<String, List<String>>,
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
+        moe.crx.overport.pfdmr.VaderAudioPatch.validateSelection(this, args)
+        moe.crx.overport.pfdmr.SpatialZombiesPatch.validateSelection(this, args)
         moe.crx.overport.pfdmr.Pinball110Patch.validateSelection(this, args)
+        moe.crx.overport.pfdmr.VaderAudioPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.UnrealObbPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.VulkanHeapPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.QuestGatePatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.RefreshRatePatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.StereoPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.Pinball110Patch.restore(workingDir.toPath())
+        moe.crx.overport.pfdmr.SpatialZombiesPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.MrCompatibilityPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.BasicPassthroughPatch.restore(workingDir.toPath())
         val mrOrdered = LinkedHashMap(args)
+        if (args.containsKey(moe.crx.overport.pfdmr.SpatialZombiesPatch.ID)) {
+            // The Unity profile includes the adapters and handles permissions in IL2CPP.
+            mrOrdered.remove(moe.crx.overport.pfdmr.MrCompatibilityPatch.ID)
+        }
+        mrOrdered.remove(moe.crx.overport.pfdmr.VaderAudioPatch.ID)?.let {
+            mrOrdered[moe.crx.overport.pfdmr.VaderAudioPatch.ID] = it
+        }
         mrOrdered.remove(moe.crx.overport.pfdmr.BasicPassthroughPatch.ID)?.let {
             mrOrdered[moe.crx.overport.pfdmr.BasicPassthroughPatch.ID] = it
         }
@@ -133,6 +144,9 @@ class PatcherContext(
         }
         mrOrdered.remove(moe.crx.overport.pfdmr.Pinball110Patch.ID)?.let {
             mrOrdered[moe.crx.overport.pfdmr.Pinball110Patch.ID] = it
+        }
+        mrOrdered.remove(moe.crx.overport.pfdmr.SpatialZombiesPatch.ID)?.let {
+            mrOrdered[moe.crx.overport.pfdmr.SpatialZombiesPatch.ID] = it
         }
         val orderedArgs = LinkedHashMap(moe.crx.overport.pfdmr.StereoPatch.prepare(this, mrOrdered))
         orderedArgs.remove(moe.crx.overport.pfdmr.RefreshRatePatch.ID)?.let {

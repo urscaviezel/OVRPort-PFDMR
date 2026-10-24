@@ -12,7 +12,7 @@ folder=a.output/f'OVRPort-PFDMR-Edition-{version}-Windows'; folder.mkdir(parents
 with zipfile.ZipFile(a.jar) as z:
     if 'pfdmr/arm64-v8a/libopenxr_loader.so' not in z.namelist(): raise SystemExit('Missing native wrapper. Build native first, then rebuild the desktop JAR.')
     if 'pfdmr/audio/Audio48.smali' not in z.namelist(): raise SystemExit('Missing audio helper. Build audio-helper first, then rebuild the desktop JAR.')
-    for name in ['pfdmr/arm64-v8a/libpfdmr_refresh.so', 'pfdmr/arm64-v8a/libpfdmr_mr_dispatch.so', 'pfdmr/arm64-v8a/libpfdmr_mr_yvr.so', 'pfdmr/mr/PfdmrScenePermissionBridge.smali']:
+    for name in ['pfdmr/arm64-v8a/libpfdmr_refresh.so', 'pfdmr/arm64-v8a/libpfdmr_mr_dispatch.so', 'pfdmr/arm64-v8a/libpfdmr_mr_yvr.so', 'pfdmr/mr/PfdmrScenePermissionBridge.smali', 'pfdmr/spatial-zombies/profile.json', 'pfdmr/spatial-zombies/SpatialSettings.smali', 'pfdmr/spatial-zombies/SpatialSettings$1.smali', 'pfdmr/spatial-zombies/SpatialSettings$2.smali']:
         if name not in z.namelist(): raise SystemExit('Missing MR resource: '+name)
 shutil.copy2(a.jar,folder/'OVRPort-PFDMR.jar')
 shutil.copytree(a.jre,folder/'jre',dirs_exist_ok=True)

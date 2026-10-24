@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.10 (local test build)
+
+- Add optional, version-checked audio mixer and Unity MR compatibility profiles.
+- Share room-anchor compatibility and support reversible Unity asset/settings changes.
+
 ## 0.1.0-beta.9
 
 - Add an optional, version-checked compatibility profile for rendering, room transitions, controller poses and stability.
