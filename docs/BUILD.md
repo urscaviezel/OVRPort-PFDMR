@@ -149,7 +149,7 @@ Beta 10 desktop validation (2026-10-24): 32 Vader checks, 14 Spatial profile che
 Beta 10 headset validation (2026-10-24): the user confirmed freshly patched Vader Immortal and Spatial Zombies work and authorized the GitHub prerelease. This confirmation does not specify separate coverage of every Vader episode.
 
 
-## Beta 11 Cancel lifecycle fix (local test build)
+## Beta 11 Cancel lifecycle fix
 
 Cancel detaches the current PatcherContext from Compose state on the calling UI thread before the IO worker closes the archive or deletes files. Outgoing animated content can therefore read app details without calling into a disposed APK. The working flag remains set through cleanup, duplicate Cancel requests are ignored while busy, and all progress state resets in finally. A cleanup exception from the Cancel button is shown in the existing in-app error dialog rather than escaping its coroutine.
 
@@ -159,3 +159,5 @@ Beta 11 preview follow-up: ApplicationInfo initializes its loading state from ca
 
 
 Beta 11 Moss resolution profile: a default-off option writes only suggested_texture_width=1800 and suggested_texture_height=1664 to the ARM64 OverPort JSON config, after selected base/config/loader patches. It is an explicit configuration preset intended for Moss, not package/version detection or a binary engine patch. An original APK needs normal library replacement to provide the OverPort config. Hz, SpaceWarp and all other JSON fields are untouched by this profile. A small receipt records prior values/key presence and restores owned edits before repatching; an independently configured 1800x1664 input is retained. `tests/MossResolutionTests.java` checks exact values, preservation of unrelated and unknown fields, idempotence, guarded rollback and signed APK export/reimport/deselection using a disposable metadata-only fixture. The supplied community script is the reference for the two values; no runnable Moss APK was present locally, so actual startup compatibility remains for the user's fresh headset test. Cancel and preview fixes remain included; no publication authorized.
+
+Beta 11 release validation (2026-10-30): the user confirmed Cancel and repeated APK preview loading work, and confirmed the 1800 x 1664 profile works for Moss Book I and II after fresh patching. Publication was subsequently authorized. Earlier local-test notes above describe the validation status at implementation time.
