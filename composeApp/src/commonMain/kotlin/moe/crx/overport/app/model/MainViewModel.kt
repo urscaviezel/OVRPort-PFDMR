@@ -88,15 +88,20 @@ class MainViewModel(val dataDirectory: File, platformIconResizer: IconResizer) :
     }
 
     suspend fun cancel() {
+        if (working) return
+        // Animated exit content can still read app details during cleanup.
+        // Detach on the UI thread before the worker closes the APK archive.
+        val discarded = patcherState
+        patcherState = null
+        working = true
         try {
-            usePatcher {
-                currentProgress = getString(Res.string.progress_cleaning)
-                currentProgressFloat = 1.0f
-                cleanup()
-            }
+            currentProgress = getString(Res.string.progress_cleaning)
+            currentProgressFloat = 1.0f
+            withContext(Dispatchers.IO) { discarded?.cleanup() }
         } finally {
+            working = false
+            currentProgress = null
             currentProgressFloat = null
-            patcherState = null
         }
     }
 

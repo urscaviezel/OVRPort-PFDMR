@@ -74,7 +74,13 @@ fun PatcherScreen(
             viewModel.currentAppIcon(),
             onCancel = {
                 scope.launch {
-                    viewModel.cancel()
+                    try {
+                        viewModel.cancel()
+                    } catch (ex: Exception) {
+                        if (ex is kotlinx.coroutines.CancellationException) throw ex
+                        ex.printStackTrace()
+                        errorMessage = getString(Res.string.unknown_error) to ex.stackTraceToString()
+                    }
                 }
             },
             onConfirm = {

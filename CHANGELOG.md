@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-beta.11 (local test build)
+
+- Fix Cancel closing the desktop app when discarding a loaded APK; return to APK selection.
+
 ## 0.1.0-beta.10
 
 - Add optional, version-checked audio mixer and Unity MR compatibility profiles.
