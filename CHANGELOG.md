@@ -4,6 +4,7 @@
 
 - Fix Cancel closing the desktop app when discarding a loaded APK; return to APK selection.
 - Show cached APK previews immediately when loading an app again.
+- Add an optional 1800 x 1664 render-resolution profile.
 
 ## 0.1.0-beta.10
 

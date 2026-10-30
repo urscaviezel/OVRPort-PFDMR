@@ -34,6 +34,7 @@ object PatchStore {
         register(moe.crx.overport.pfdmr.BasicPassthroughPatch.PATCH)
         register(moe.crx.overport.pfdmr.MrCompatibilityPatch.PATCH)
         register(moe.crx.overport.pfdmr.SpatialZombiesPatch.PATCH)
+        register(moe.crx.overport.pfdmr.MossResolutionPatch.PATCH)
         register(moe.crx.overport.pfdmr.Pinball110Patch.PATCH)
         register(moe.crx.overport.pfdmr.RefreshRatePatch.PATCH)
         register(moe.crx.overport.pfdmr.UnrealObbPatch.PATCH)

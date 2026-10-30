@@ -118,6 +118,7 @@ class PatcherContext(
         moe.crx.overport.pfdmr.VaderAudioPatch.validateSelection(this, args)
         moe.crx.overport.pfdmr.SpatialZombiesPatch.validateSelection(this, args)
         moe.crx.overport.pfdmr.Pinball110Patch.validateSelection(this, args)
+        moe.crx.overport.pfdmr.MossResolutionPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.VaderAudioPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.UnrealObbPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.VulkanHeapPatch.restore(workingDir.toPath())
@@ -151,6 +152,9 @@ class PatcherContext(
         val orderedArgs = LinkedHashMap(moe.crx.overport.pfdmr.StereoPatch.prepare(this, mrOrdered))
         orderedArgs.remove(moe.crx.overport.pfdmr.RefreshRatePatch.ID)?.let {
             orderedArgs[moe.crx.overport.pfdmr.RefreshRatePatch.ID] = it
+        }
+        orderedArgs.remove(moe.crx.overport.pfdmr.MossResolutionPatch.ID)?.let {
+            orderedArgs[moe.crx.overport.pfdmr.MossResolutionPatch.ID] = it
         }
         moe.crx.overport.pfdmr.UnrealAudioPatch.prepare(workingDir.toPath(), args.containsKey(moe.crx.overport.pfdmr.UnrealAudioPatch.ID))
         val patches = orderedArgs.keys.mapNotNull { PatchStore.get(it) }
