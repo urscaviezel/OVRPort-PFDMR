@@ -36,40 +36,44 @@ fun ApplicationInfo(
     forceLocalInfo: Boolean = false,
     useCover: Boolean = false,
 ) {
-    var iconIsLoading by remember(applicationPackage) { mutableStateOf(true) }
+    var iconIsLoading by remember(applicationPackage) { mutableStateOf(!iconCache.containsKey(applicationPackage)) }
     var onlineIcon by remember(applicationPackage) { mutableStateOf(iconCache[applicationPackage]) }
     var onlineCover by remember(applicationPackage) { mutableStateOf(coverCache[applicationPackage]) }
 
     var onlineLabel by rememberSaveable(applicationPackage) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(applicationPackage) {
-        withContext(Dispatchers.IO) {
-            if (iconCache.containsKey(applicationPackage)) {
-                return@withContext
+        try {
+            withContext(Dispatchers.IO) {
+                if (iconCache.containsKey(applicationPackage)) {
+                    return@withContext
+                }
+
+                val info = getApplicationInfo(applicationPackage)
+                onlineLabel = info?.displayName
+
+                val icon = info?.run {
+                    val associated = images.associateBy { it.imageType }
+                    associated["APP_IMG_ICON"] ?: associated["APP_IMG_COVER_SQUARE"]
+                }
+
+                val cover = info?.run {
+                    val associated = images.associateBy { it.imageType }
+                    associated["APP_IMG_COVER_SQUARE"] ?: associated["APP_IMG_ICON"]
+                }
+
+                val iconBitmap = icon?.uri?.let { Base64.getDecoder().decode(it) }?.decodeBitmap()
+                val coverBitmap = cover?.uri?.let { Base64.getDecoder().decode(it) }?.decodeBitmap()
+
+                iconCache[applicationPackage] = iconBitmap
+                coverCache[applicationPackage] = coverBitmap
+
+                onlineIcon = iconBitmap
+                onlineCover = coverBitmap
+
             }
-
-            val info = getApplicationInfo(applicationPackage)
-            onlineLabel = info?.displayName
-
-            val icon = info?.run {
-                val associated = images.associateBy { it.imageType }
-                associated["APP_IMG_ICON"] ?: associated["APP_IMG_COVER_SQUARE"]
-            }
-
-            val cover = info?.run {
-                val associated = images.associateBy { it.imageType }
-                associated["APP_IMG_COVER_SQUARE"] ?: associated["APP_IMG_ICON"]
-            }
-
-            val iconBitmap = icon?.uri?.let { Base64.getDecoder().decode(it) }?.decodeBitmap()
-            val coverBitmap = cover?.uri?.let { Base64.getDecoder().decode(it) }?.decodeBitmap()
-
-            iconCache[applicationPackage] = iconBitmap
-            coverCache[applicationPackage] = coverBitmap
-
-            onlineIcon = iconBitmap
-            onlineCover = coverBitmap
-
+        } finally {
+            // Cache hits skip the download, but must still finish the loading state.
             iconIsLoading = false
         }
     }

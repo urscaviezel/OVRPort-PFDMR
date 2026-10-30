@@ -3,6 +3,7 @@
 ## 0.1.0-beta.11 (local test build)
 
 - Fix Cancel closing the desktop app when discarding a loaded APK; return to APK selection.
+- Show cached APK previews immediately when loading an app again.
 
 ## 0.1.0-beta.10
 
