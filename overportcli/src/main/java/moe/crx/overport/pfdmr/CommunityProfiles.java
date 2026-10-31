@@ -23,7 +23,8 @@ public final class CommunityProfiles {
   for(String id:IDS)if(args.containsKey(id)){
    String pkg=Map.of(HAND,"com.CubicleNinjas.GuidedTaiChi",ROOM,"com.FireproofStudios.TheRoomVR",CLIMB,"com.crytek.climb",ELEVEN,"quest.eleven.forfunlabs",WANDER,"com.parkline.wander",SUPERHOT,"unity.SUPERHOT_Team.SUPERHOT_VR_QA").get(id);
    String code=Map.of(HAND,"1274",ROOM,"5011",CLIMB,"666",ELEVEN,"210710133",WANDER,"3570",SUPERHOT,"178").get(id);
-   if(!pkg.equals(ctx.appPackage())||!code.equals(ctx.appVersionCode()))throw fail("This profile supports only "+pkg+" version code "+code+".");
+   boolean supported=code.equals(ctx.appVersionCode())||(id.equals(SUPERHOT)&&"1.161".equals(ctx.appVersionName()));
+   if(!pkg.equals(ctx.appPackage())||!supported)throw fail("This profile supports only "+pkg+" version code "+code+(id.equals(SUPERHOT)?" or version 1.161":"")+".");
    if(args.containsKey(MrCompatibilityPatch.ID)||args.containsKey(BasicPassthroughPatch.ID)||args.containsKey(SpatialZombiesPatch.ID)||args.containsKey(Pinball110Patch.ID))throw fail("Unrelated MR/game profiles cannot be combined with this game profile.");
    if(id.equals(CLIMB)&&args.containsKey("patch_remove_vrapi"))throw fail("Disable Remove VrApi library when using The Climb bridge.");
   }
@@ -58,14 +59,16 @@ public final class CommunityProfiles {
    String path=LIB+"libunity.so";byte[] renamed=new CommunityElf(Files.readAllBytes(ws.resolve(path))).imports(Map.of("pthread_key_create","fp_tkey_create","pthread_key_delete","fp_tkey_delete","pthread_getspecific","fp_tkey_get","pthread_setspecific","fp_tkey_set"));changes.put(path,new CommunityElf(renamed).needed("libfp_tkeys.so"));addHelper(ws,changes,"libfp_tkeys.so");
   }
   if(id.equals(CLIMB)||id.equals(SUPERHOT)){
-   Path smali=ws.resolve("smali");List<Path> roots;try(var files=Files.list(smali)){roots=files.filter(Files::isDirectory).sorted().toList();}if(roots.isEmpty())throw fail("No DEX workspace for app initializer");try(var files=Files.walk(smali)){if(files.anyMatch(p->p.toString().replace('\\','/').endsWith("/moe/crx/pfdmr/CommunityInit.smali")))throw fail("Init helper already present");}
+   Path smali=ws.resolve("smali");Files.createDirectories(smali);List<Path> roots;try(var files=Files.list(smali)){roots=files.filter(Files::isDirectory).sorted().toList();}if(roots.isEmpty())roots=List.of(Files.createDirectory(smali.resolve("classes")));try(var files=Files.walk(smali)){if(files.anyMatch(p->p.toString().replace('\\','/').endsWith("/moe/crx/pfdmr/CommunityInit.smali")))throw fail("Init helper already present");}
    String path=ws.relativize(roots.get(0).resolve("moe/crx/pfdmr/CommunityInit.smali")).toString().replace('\\','/');changes.put(path,canonicalHelper());manifest=new JSONObject(Files.readString(ws.resolve("AndroidManifest.xml.json")));JSONObject app=app(manifest);JSONArray nodes=app.optJSONArray("nodes");if(nodes==null){nodes=new JSONArray();app.put("nodes",nodes);}for(int i=0;i<nodes.length();i++)if(ourProvider(nodes.optJSONObject(i)))throw fail("Provider name collision");nodes.put(provider(pkg));
   }
   commit(ws,id,changes,manifest);
  }catch(IOException e){throw fail(e.toString());}}
  static void addHelper(Path ws,Map<String,byte[]> changes,String name)throws IOException{if(Files.exists(ws.resolve(LIB+name)))throw fail("Existing unowned helper "+name);changes.put(LIB+name,resource(name));}
  static void commit(Path ws,String id,Map<String,byte[]> changes,JSONObject manifest)throws IOException{
-  JSONObject receipt=new JSONObject().put("version",1).put("profile",id).put("provider",manifest!=null);JSONArray records=new JSONArray();
+  JSONObject receipt=new JSONObject().put("version",1).put("profile",id).put("provider",manifest!=null);
+  if(manifest!=null){JSONObject application=app(manifest);JSONArray attrs=application.optJSONArray("attributes");if(attrs==null){attrs=new JSONArray();application.put("attributes",attrs);}JSONArray old=new JSONArray();for(int i=attrs.length()-1;i>=0;i--){JSONObject a=attrs.getJSONObject(i);if("hasCode".equals(a.optString("name"))){old.put(new JSONObject(a.toString()));attrs.remove(i);}}receipt.put("has_code_before",old);attrs.put(attr("hasCode",16842764,"BOOLEAN",true));}
+  JSONArray records=new JSONArray();
   for(var e:changes.entrySet()){
    Path p=safe(ws,e.getKey());byte[] after=e.getValue(),before=Files.exists(p)?Files.readAllBytes(p):null;JSONObject r=new JSONObject().put("path",e.getKey()).put("after",StereoPatch.sha256(after)).put("length",before==null?-1:before.length);JSONArray spans=new JSONArray();if(before!=null){r.put("before",StereoPatch.sha256(before));for(int i=0;i<before.length;){if(i<after.length&&before[i]==after[i]){i++;continue;}int start=i++;while(i<before.length&&(i>=after.length||before[i]!=after[i]))i++;spans.put(new JSONObject().put("offset",start).put("bytes",Base64.getEncoder().encodeToString(Arrays.copyOfRange(before,start,i))));}}r.put("spans",spans);records.put(r);
   }receipt.put("files",records);Path rp=ws.resolve(RECEIPT);Files.createDirectories(rp.getParent());Files.writeString(rp,receipt.toString());
@@ -75,7 +78,11 @@ public final class CommunityProfiles {
  public static void restore(Path ws){Path rp=ws.resolve(RECEIPT);if(!Files.exists(rp))return;try{
   JSONObject receipt=new JSONObject(Files.readString(rp));if(receipt.getInt("version")!=1||!IDS.contains(receipt.getString("profile")))throw fail("Unknown rollback receipt");JSONArray records=receipt.getJSONArray("files");Map<Path,byte[]> before=new LinkedHashMap<>();
   for(int i=0;i<records.length();i++){JSONObject r=records.getJSONObject(i);Path p=safe(ws,r.getString("path"));byte[] after=Files.readAllBytes(p);if(r.getString("path").endsWith(".smali"))after=new String(after,StandardCharsets.UTF_8).replace("\r\n","\n").getBytes(StandardCharsets.UTF_8);if(!StereoPatch.sha256(after).equals(r.getString("after")))throw fail("Changed profile file: "+p.getFileName()+". Use original APK.");int len=r.getInt("length");if(len<0){before.put(p,null);continue;}byte[] original=Arrays.copyOf(after,len);JSONArray spans=r.getJSONArray("spans");for(int j=0;j<spans.length();j++){JSONObject s=spans.getJSONObject(j);byte[] bytes=Base64.getDecoder().decode(s.getString("bytes"));int at=s.getInt("offset");if(at<0||(long)at+bytes.length>len)throw fail("Invalid rollback range");System.arraycopy(bytes,0,original,at,bytes.length);}known(original,r.getString("before"));before.put(p,original);}
-  JSONObject manifest=null;if(receipt.optBoolean("provider",false)){Path path=ws.resolve("AndroidManifest.xml.json");manifest=new JSONObject(Files.readString(path));JSONArray nodes=app(manifest).getJSONArray("nodes");int count=0;for(int i=nodes.length()-1;i>=0;i--)if(ourProvider(nodes.optJSONObject(i))){nodes.remove(i);count++;}if(count!=1)throw fail("Initializer changed or missing");}
+  JSONObject manifest=null;if(receipt.optBoolean("provider",false)){Path path=ws.resolve("AndroidManifest.xml.json");manifest=new JSONObject(Files.readString(path));JSONArray nodes=app(manifest).getJSONArray("nodes");int count=0;for(int i=nodes.length()-1;i>=0;i--)if(ourProvider(nodes.optJSONObject(i))){nodes.remove(i);count++;}if(count!=1)throw fail("Initializer changed or missing");
+   JSONArray old=receipt.optJSONArray("has_code_before");if(old!=null){JSONArray attrs=app(manifest).getJSONArray("attributes");int found=0;for(int i=attrs.length()-1;i>=0;i--){JSONObject a=attrs.getJSONObject(i);if("hasCode".equals(a.optString("name"))){if(!a.optBoolean("data",false))throw fail("Initializer hasCode changed");attrs.remove(i);found++;}}if(found!=1)throw fail("Initializer hasCode missing");for(int i=0;i<old.length();i++)attrs.put(old.getJSONObject(i));}
+  }
   for(var e:before.entrySet())if(e.getValue()==null)Files.delete(e.getKey());else Files.write(e.getKey(),e.getValue());if(manifest!=null)Files.writeString(ws.resolve("AndroidManifest.xml.json"),manifest.toString());Files.delete(rp);
+  // Remove empty generated smali trees so a native-only input does not gain an empty DEX on rollback.
+  Path smali=ws.resolve("smali");if(Files.isDirectory(smali))try(var paths=Files.walk(smali)){for(Path p:paths.filter(Files::isDirectory).sorted(Comparator.reverseOrder()).toList()){try(var children=Files.list(p)){if(children.findAny().isEmpty())Files.delete(p);}}}
  }catch(IOException e){throw fail(e.toString());}}
 }
