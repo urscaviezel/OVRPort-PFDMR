@@ -26,7 +26,7 @@ subprocess.run([str(csc),'/nologo','/target:winexe','/optimize+','/reference:Sys
 for name in ['README.md','README.de.md','LICENSE','THIRD-PARTY-NOTICES.md','CHANGELOG.md']:
     shutil.copy2(root/name,folder/name)
 shutil.copytree(root/'licenses',folder/'licenses',dirs_exist_ok=True)
-shutil.copytree(root/'third-party/frameport-1.4.0',folder/'third-party/frameport-1.4.0',dirs_exist_ok=True)
+shutil.copytree(root/'third-party/frameport-1.4.0',folder/'licenses/frameport-1.4.0-source',dirs_exist_ok=True)
 try: commit=subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip()
 except Exception: commit='unknown'
 info={'version':version,'upstream':'https://github.com/ovrport/app','upstream_commit':'1c7cb335c81369fbfd2957ad0edcb238956a8e3c','source_commit_at_packaging':commit,
