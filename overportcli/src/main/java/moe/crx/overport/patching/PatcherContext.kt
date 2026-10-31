@@ -165,6 +165,10 @@ class PatcherContext(
         val executor = PatchExecutor(librariesDir, workingDir, apk())
 
 
+        // Render-size profile may run on a fresh APK without an embedded Frida config.
+        if (orderedArgs.containsKey(moe.crx.overport.pfdmr.MossResolutionPatch.ID)) {
+            executor.selectConfig { if (version == 0) version = 1 }
+        }
         patches.forEachIndexed { index, patch ->
             callback(index, patch)
             patch.executor(executor, args[patch.name] ?: listOf())

@@ -9,7 +9,7 @@ import moe.crx.overport.patching.Patch;
 /** Explicit opt-in render-size configuration; no game code or runtime hooks. */
 public final class MossResolutionPatch {
     public static final String ID = "patch_pfdmr_moss_resolution";
-    public static final String LABEL = "PFDMR compatibility: Moss render resolution 1800 x 1664 (experimental)";
+    public static final String LABEL = "PFDMR compatibility: render resolution 1800 x 1664 (experimental)";
     private static final String CONFIG = "root/lib/arm64-v8a/liboverport.config.so";
     private static final String RECEIPT = "root/assets/pfdmr-moss-resolution.json";
     private static final String WIDTH = "suggested_texture_width", HEIGHT = "suggested_texture_height";

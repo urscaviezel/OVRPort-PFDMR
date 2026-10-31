@@ -4,13 +4,43 @@ import com.reandroid.apk.ApkModule
 import com.reandroid.apk.ApkModuleJsonDecoder
 import com.reandroid.arsc.chunk.PackageBlock
 import com.reandroid.json.JSONObject
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import moe.crx.overport.config.OverportConfig
 import java.io.File
 
 class PatchExecutor(private val librariesDir: File, private val workingDir: File, private val apkModule: ApkModule) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
+
+        // Apply only fields actually changed by a patch; retain runtime extensions.
+        fun mergeConfigChanges(original: JsonElement, before: JsonElement, after: JsonElement): JsonElement {
+            if (before == after) return original
+            if (before is JsonObject && after is JsonObject && original is JsonObject) {
+                val result = original.toMutableMap()
+                for (key in before.keys + after.keys) {
+                    if (before[key] == after[key]) continue
+                    val next = after[key]
+                    if (next == null) result.remove(key)
+                    else result[key] = mergeConfigChanges(original[key] ?: JsonNull, before[key] ?: JsonNull, next)
+                }
+                return JsonObject(result)
+            }
+            if (before is JsonArray && after is JsonArray && original is JsonArray) {
+                // Database entries and assets have stable identities, independent of order.
+                val identity = listOf("app_id", "asset_id").firstOrNull { key ->
+                    (before + after).isNotEmpty() && (before + after).all { it is JsonObject && key in it }
+                }
+                if (identity != null) {
+                    fun id(value: JsonElement) = (value as? JsonObject)?.get(identity)
+                    return JsonArray(after.map { next ->
+                        val previous = before.firstOrNull { id(it) == id(next) }
+                        val raw = original.firstOrNull { id(it) == id(next) }
+                        if (previous != null && raw != null) mergeConfigChanges(raw, previous, next) else next
+                    })
+                }
+            }
+            return after
+        }
     }
 
     fun getLibraries(): File {
@@ -78,16 +108,16 @@ class PatchExecutor(private val librariesDir: File, private val workingDir: File
 
     fun selectConfig(block: OverportConfig.() -> Unit) {
         createLibrary("liboverport.config.so") {
-            val config = runCatching {
-                json.decodeFromString<OverportConfig>(readText())
-            }.getOrElse {
-                OverportConfig(version = 1)
-            }
-
+            val original = readText().trim().takeIf { it.isNotEmpty() }
+                ?.let { json.parseToJsonElement(it) as? JsonObject
+                    ?: error("OverPort configuration must be a JSON object") }
+                ?: JsonObject(emptyMap())
+            val config = if (original.isEmpty()) OverportConfig(version = 1)
+                else json.decodeFromJsonElement<OverportConfig>(original)
+            val before = if (original.isEmpty()) JsonObject(emptyMap()) else json.encodeToJsonElement(config)
             block(config)
-
-            val jsonString = json.encodeToString(config)
-            writeText(jsonString)
+            val after = json.encodeToJsonElement(config)
+            writeText(mergeConfigChanges(original, before, after).toString())
         }
     }
 

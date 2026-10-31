@@ -1,3 +1,9 @@
+# 0.1.0-beta.12 (local test build)
+
+- Generalized the optional 1800 x 1664 render-resolution label.
+- Initialize configuration for fresh-APK resolution patching.
+- Preserve unrelated runtime configuration fields during patch updates; reject malformed config instead of silently resetting it.
+
 # Changelog
 
 ## 0.1.0-beta.11
