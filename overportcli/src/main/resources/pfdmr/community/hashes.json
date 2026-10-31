@@ -2,5 +2,6 @@
   "libfp_langpack.so": "60a87bff95c2252b5a8d967d4e25305c945e47fc9f81b90530924b4b09d368d9",
   "libfp_ovrp.so": "321da502e0f8f46f0880aad39fe6b84bdef88f925164568814cf704a1b31a577",
   "libfp_tkeys.so": "0167c2fde5dfde62897f9d85afc4fc8e97784e988b5b8df6cea8c407240b3424",
-  "libvrapi.so": "c7a14d34e4ddf20ec943641f6431525867d6f030cd01160df1b24afd441af39f"
+  "libvrapi.so": "c7a14d34e4ddf20ec943641f6431525867d6f030cd01160df1b24afd441af39f",
+  "libpfdmr_climb_vrapi.so": "4821eaeb1874a2eb650a4deeb5031a9f15be9d3488610dc7373d83faad601c3e"
 }

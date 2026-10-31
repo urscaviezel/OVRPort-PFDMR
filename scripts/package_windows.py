@@ -12,7 +12,7 @@ folder=a.output/f'OVRPort-PFDMR-Edition-{version}-Windows'; folder.mkdir(parents
 with zipfile.ZipFile(a.jar) as z:
     if 'pfdmr/arm64-v8a/libopenxr_loader.so' not in z.namelist(): raise SystemExit('Missing native wrapper. Build native first, then rebuild the desktop JAR.')
     if 'pfdmr/audio/Audio48.smali' not in z.namelist(): raise SystemExit('Missing audio helper. Build audio-helper first, then rebuild the desktop JAR.')
-    for name in ['pfdmr/community/CommunityInit.smali', 'pfdmr/community/libfp_langpack.so', 'pfdmr/community/libfp_ovrp.so', 'pfdmr/community/libfp_tkeys.so', 'pfdmr/community/libvrapi.so', 'pfdmr/arm64-v8a/libpfdmr_refresh.so', 'pfdmr/arm64-v8a/libpfdmr_mr_dispatch.so', 'pfdmr/arm64-v8a/libpfdmr_mr_yvr.so', 'pfdmr/mr/PfdmrScenePermissionBridge.smali', 'pfdmr/spatial-zombies/profile.json', 'pfdmr/spatial-zombies/SpatialSettings.smali', 'pfdmr/spatial-zombies/SpatialSettings$1.smali', 'pfdmr/spatial-zombies/SpatialSettings$2.smali']:
+    for name in ['pfdmr/community/libpfdmr_climb_vrapi.so', 'pfdmr/community/CommunityInit.smali', 'pfdmr/community/libfp_langpack.so', 'pfdmr/community/libfp_ovrp.so', 'pfdmr/community/libfp_tkeys.so', 'pfdmr/community/libvrapi.so', 'pfdmr/arm64-v8a/libpfdmr_refresh.so', 'pfdmr/arm64-v8a/libpfdmr_mr_dispatch.so', 'pfdmr/arm64-v8a/libpfdmr_mr_yvr.so', 'pfdmr/mr/PfdmrScenePermissionBridge.smali', 'pfdmr/spatial-zombies/profile.json', 'pfdmr/spatial-zombies/SpatialSettings.smali', 'pfdmr/spatial-zombies/SpatialSettings$1.smali', 'pfdmr/spatial-zombies/SpatialSettings$2.smali']:
         if name not in z.namelist(): raise SystemExit('Missing MR resource: '+name)
 shutil.copy2(a.jar,folder/'OVRPort-PFDMR.jar')
 shutil.copytree(a.jre,folder/'jre',dirs_exist_ok=True)
@@ -27,6 +27,12 @@ for name in ['README.md','README.de.md','LICENSE','THIRD-PARTY-NOTICES.md','CHAN
     shutil.copy2(root/name,folder/name)
 shutil.copytree(root/'licenses',folder/'licenses',dirs_exist_ok=True)
 shutil.copytree(root/'third-party/frameport-1.4.0',folder/'licenses/frameport-1.4.0-source',dirs_exist_ok=True)
+# Ship both original and PFDMR-modified input sources for the two bundled bridges.
+bridge_source=folder/'licenses/frameport-1.4.0-source/native/vrapi-bridge'
+shutil.copy2(bridge_source/'input.cpp',bridge_source/'input-upstream.cpp')
+shutil.copy2(root/'native/climb-bridge/build/input.cpp',bridge_source/'input.cpp')
+(bridge_source/'PFDMR-CHANGES.txt').write_text('PFDMR Climb trial: input.cpp replaces only the legacy Touch pose (-60 degrees and translation) with identity OpenXR grip pose. input-upstream.cpp is the original source for the unmodified prebuilt. Other bridge sources are unchanged. Build using native/build.py --only bridge --ndk <NDK r27c>. OpenXR header commit: 7f9285bce1ce8b69bb75554bf788666579d0c35e. Visual validation pending.\n')
+
 try: commit=subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip()
 except Exception: commit='unknown'
 info={'version':version,'upstream':'https://github.com/ovrport/app','upstream_commit':'1c7cb335c81369fbfd2957ad0edcb238956a8e3c','source_commit_at_packaging':commit,
