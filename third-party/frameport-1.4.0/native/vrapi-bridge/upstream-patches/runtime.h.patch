@@ -1,0 +1,51 @@
+--- runtime.h.orig
++++ runtime.h
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-3.0-only
+ #pragma once
+ #include "abi.h"
++#include <EGL/egl.h>
+ #include <openxr/openxr.h>
+ #include <openxr/openxr_platform.h>
+ #include <android/log.h>
+@@ -59,8 +60,20 @@
+     std::array<XrViewConfigurationViewFovEPIC, 2> viewConfigFov{};
+     std::array<float, 2> recommendedFovDegrees{};
+     std::array<float, 2> locatedFovDegrees{};
++    // FramePort: the last live FOV of an earlier session (framebridge-vrapi-fov.txt in the app's external files).
++    // Games that read VrApi's FOV properties right after vrapi_Initialize (before any session, e.g. BlazeRush) and
++    // cache them get this instead of a 90 degree guess when the runtime has no XR_EPIC_view_configuration_fov.
++    std::array<float, 2> savedFovDegrees{};
++    bool savedFovValid = false;
++    int loggedFovSource = -1;
+     std::array<XrView, 2> views{{{XR_TYPE_VIEW}, {XR_TYPE_VIEW}}};
+     ovrSystemCreateInfoVulkan vk{};
++    // GLES apps (no vrapi_CreateSystemVulkan): EGL objects from ovrModeParms.
++    bool gles = false, glesExtension = false, vulkanExtension = false;
++    EGLDisplay eglDisplay = EGL_NO_DISPLAY;
++    EGLContext eglContext = EGL_NO_CONTEXT;
++    EGLConfig eglConfig = nullptr;
++    PFN_xrGetOpenGLESGraphicsRequirementsKHR getGlesRequirements = nullptr;
+     VkQueue queue = VK_NULL_HANDLE;
+     uint32_t queueFamily = 0;
+     double timeOffset = 0;
+@@ -73,12 +86,19 @@
+     PFN_xrSetAndroidApplicationThreadKHR setThread = nullptr;
+     PFN_axrbGetSystemDisplayRefreshRate getSystemDisplayRefreshRate = nullptr;
+     PFN_xrGetDisplayRefreshRateFB getDisplayRefreshRate = nullptr;
++    PFN_xrRequestDisplayRefreshRateFB requestDisplayRefreshRate = nullptr;
+     DisplayRefreshRateSource loggedDisplayRefreshRateSource = DisplayRefreshRateSource::Unqueried;
+     float loggedDisplayRefreshRate = 0;
+     ovrPosef trackingTransform{{0, 0, 0, 1}, {0, 0, 0}};
+     ovrPosef centerEyeTransform{{0, 0, 0, 1}, {0, 0, 0}};
+     bool initialRecenterPending = false;
++    // A recenter after the first: the runtime's own (the Frame's long press of the menu button moves LOCAL to the
++    // head) or vrapi_RecenterPose. Applied in the first frame displayed at or after recenterTime.
++    bool recenterPending = false;
++    XrTime recenterTime = 0;
+     uint32_t recenterCount = 0;
++    int32_t trackingSpace = 0;                       // VrApi's: 0 LOCAL (eye level), 1 LOCAL_FLOOR, 3 STAGE
++    XrPosef eyeOrigin{{0, 0, 0, 1}, {0, 0, 0}};       // the app space's eye-level origin in LOCAL
+ };
+ Runtime& runtime();
+ bool xrOk(XrResult result, const char* operation);

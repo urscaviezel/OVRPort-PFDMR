@@ -45,6 +45,7 @@ object PatchLocalizer {
         if (patch.name == moe.crx.overport.pfdmr.UnrealObbPatch.ID) return moe.crx.overport.pfdmr.UnrealObbPatch.LABEL
         if (patch.name == moe.crx.overport.pfdmr.VaderAudioPatch.ID) return moe.crx.overport.pfdmr.VaderAudioPatch.LABEL
         if (patch.name == moe.crx.overport.pfdmr.SpatialZombiesPatch.ID) return moe.crx.overport.pfdmr.SpatialZombiesPatch.LABEL
+        moe.crx.overport.pfdmr.CommunityProfiles.label(patch.name)?.let { return it }
         if (patch.name == moe.crx.overport.pfdmr.MossResolutionPatch.ID) return moe.crx.overport.pfdmr.MossResolutionPatch.LABEL
         return LOCALIZED_PATCHES[patch]?.let {
             stringResource(it)

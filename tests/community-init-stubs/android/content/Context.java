@@ -1,0 +1,1 @@
+package android.content; import java.io.File; public class Context { public String pkg;public File dir;public String getPackageName(){return pkg;}public File getExternalFilesDir(String s){return dir;} }

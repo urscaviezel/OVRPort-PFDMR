@@ -115,6 +115,7 @@ class PatcherContext(
         args: Map<String, List<String>>,
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
+        moe.crx.overport.pfdmr.CommunityProfiles.validateSelection(this, args)
         moe.crx.overport.pfdmr.VaderAudioPatch.validateSelection(this, args)
         moe.crx.overport.pfdmr.SpatialZombiesPatch.validateSelection(this, args)
         moe.crx.overport.pfdmr.Pinball110Patch.validateSelection(this, args)
@@ -129,7 +130,8 @@ class PatcherContext(
         moe.crx.overport.pfdmr.SpatialZombiesPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.MrCompatibilityPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.BasicPassthroughPatch.restore(workingDir.toPath())
-        val mrOrdered = LinkedHashMap(args)
+        moe.crx.overport.pfdmr.CommunityProfiles.restore(workingDir.toPath())
+        val mrOrdered = LinkedHashMap(moe.crx.overport.pfdmr.CommunityProfiles.expand(args))
         if (args.containsKey(moe.crx.overport.pfdmr.SpatialZombiesPatch.ID)) {
             // The Unity profile includes the adapters and handles permissions in IL2CPP.
             mrOrdered.remove(moe.crx.overport.pfdmr.MrCompatibilityPatch.ID)
@@ -148,6 +150,9 @@ class PatcherContext(
         }
         mrOrdered.remove(moe.crx.overport.pfdmr.SpatialZombiesPatch.ID)?.let {
             mrOrdered[moe.crx.overport.pfdmr.SpatialZombiesPatch.ID] = it
+        }
+        for (id in moe.crx.overport.pfdmr.CommunityProfiles.IDS) {
+            mrOrdered.remove(id)?.let { mrOrdered[id] = it }
         }
         val orderedArgs = LinkedHashMap(moe.crx.overport.pfdmr.StereoPatch.prepare(this, mrOrdered))
         orderedArgs.remove(moe.crx.overport.pfdmr.RefreshRatePatch.ID)?.let {

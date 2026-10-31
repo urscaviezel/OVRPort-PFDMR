@@ -1,0 +1,520 @@
+#!/usr/bin/env python3
+"""Rebuild the prebuilt native artifacts in ../artifacts (developers only; users never need this).
+
+Everything is fetched on demand into native/.cache (git-ignored):
+  - Android NDK r27c (27.2.12479018) from Google's repository (checksummed via repository2-3.xml)
+  - OpenXR headers at the commits each component was written against (KhronosGroup/OpenXR-SDK)
+  - Temurin JDK 21 (javac) and Android build-tools (d8) for the Java stub classes
+Then builds: FrameBridge adapter (arm64 + arm32), VrApi bridge, platform compat, language packs, GL shim, multiview twin interposer (glmv), oculusos stub dex, the
+timefix OpenXR layer for Proton games (linux-arm64, glibc; the NDK's clang builds it freestanding), the
+OculusHMDConnected helper for Rift games under Proton (win-x64 PE; the NDK's clang + lld-link, no Windows SDK), the
+live view's hardware H.264 encoder fp_venc (linux-arm64-bin, static freestanding executable), and rewrites artifacts/SHA256SUMS. Run `frameport parity` afterwards to see which games change.
+
+    python native/build.py [--only adapter,bridge,compat,langpack,glshim,eglfmt,glmv,ovrtrace,dex,handoff,xrlayer,oculushmd,xrruntime,xrshim,vkshim,zinkfix,foveation,ovrpshim,tlskeys,vrsettings,venc,vroverlay_probe] [--ndk PATH]
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
+import platform
+import re
+import shutil
+import subprocess
+import struct
+import sys
+import urllib.request
+import zipfile
+from pathlib import Path
+from xml.etree import ElementTree
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+CACHE = HERE / ".cache"
+ART = Path(os.environ.get("FRAMEPORT_ARTIFACTS_OUT", ROOT / "artifacts"))
+NDK_VERSION = "27.2.12479018"  # r27c
+REPO = "https://dl.google.com/android/repository/"
+OPENXR = {  # component -> OpenXR-SDK commit its headers came from
+    "adapter": "f2448a8797c85814aa892efc1ab8707900fbcc78",
+    "bridge": "7f9285bce1ce8b69bb75554bf788666579d0c35e",
+    "xrlayer": "f2448a8797c85814aa892efc1ab8707900fbcc78",
+}
+OPENXR_HEADERS = ("openxr.h", "openxr_platform.h", "openxr_platform_defines.h", "openxr_loader_negotiation.h")
+
+
+def log(msg):
+    print(f"== {msg}", flush=True)
+
+
+def fetch(url: str, dest: Path, sha1: str | None = None) -> Path:
+    if dest.exists():
+        return dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    log(f"download {url}")
+    tmp = dest.with_suffix(dest.suffix + ".part")
+    with urllib.request.urlopen(url) as r, open(tmp, "wb") as f:
+        shutil.copyfileobj(r, f, 1 << 20)
+    if sha1 and hashlib.sha1(tmp.read_bytes()).hexdigest() != sha1:
+        raise SystemExit(f"checksum mismatch: {url}")
+    tmp.replace(dest)
+    return dest
+
+
+def repo_archive(path_prefix: str) -> tuple[str, str]:
+    """(url, sha1) of a package in Google's repository for this host OS."""
+    host = {"Linux": "linux", "Darwin": "macosx", "Windows": "windows"}[platform.system()]
+    idx = fetch(REPO + "repository2-3.xml", CACHE / "repository2-3.xml")
+    root = ElementTree.fromstring(idx.read_text())
+    for pkg in root.iter("remotePackage"):
+        if pkg.get("path") != path_prefix:
+            continue
+        for a in pkg.iter("archive"):
+            if a.findtext("host-os") in (host, None):
+                return REPO + a.findtext("complete/url"), a.findtext("complete/checksum")
+    raise SystemExit(f"{path_prefix} not found in the Android repository index")
+
+
+def ndk(explicit: str | None) -> Path:
+    if explicit:
+        return Path(explicit)
+    dest = CACHE / f"ndk-{NDK_VERSION}"
+    if not (dest / "source.properties").exists():
+        url, sha1 = repo_archive(f"ndk;{NDK_VERSION}")
+        z = fetch(url, CACHE / Path(url).name, sha1)
+        log("extract NDK")
+        with zipfile.ZipFile(z) as zf:
+            zf.extractall(CACHE / "ndk-extract")
+        top = next((CACHE / "ndk-extract").iterdir())
+        shutil.move(str(top), str(dest))  # (a plain rename can fail on NTFS while the folder is being scanned)
+        shutil.rmtree(CACHE / "ndk-extract", ignore_errors=True)
+        restore_symlinks(z, dest)
+        for p in (dest / "toolchains/llvm/prebuilt").rglob("bin/*"):
+            p.chmod(0o755)
+    return dest
+
+
+def restore_symlinks(archive: Path, dest: Path) -> None:
+    """zipfile writes symlinks (clang -> clang-18, ...) as small text files; replace them with copies of their
+    targets (copies also work on filesystems without symlinks)."""
+    with zipfile.ZipFile(archive) as zf:
+        links = [i for i in zf.infolist() if (i.external_attr >> 16) & 0o170000 == 0o120000]
+        for _ in range(3):  # links to links
+            for info in links:
+                rel = Path(*Path(info.filename).parts[1:])
+                path = dest / rel
+                target = (path.parent / zf.read(info).decode()).resolve()
+                if target.is_file() and (not path.exists() or path.stat().st_size < 256):
+                    path.unlink(missing_ok=True)
+                    shutil.copy2(target, path)
+
+
+def clang_dir(ndk_root: Path) -> Path:
+    host = {"Linux": "linux-x86_64", "Darwin": "darwin-x86_64", "Windows": "windows-x86_64"}[platform.system()]
+    return ndk_root / "toolchains/llvm/prebuilt" / host
+
+
+def openxr_include(component: str) -> Path:
+    commit = OPENXR[component]
+    inc = CACHE / f"openxr-{commit[:10]}"
+    for h in OPENXR_HEADERS:
+        fetch(f"https://raw.githubusercontent.com/KhronosGroup/OpenXR-SDK/{commit}/include/openxr/{h}", inc / "openxr" / h)
+    return inc
+
+
+def run(cmd, cwd=None):
+    cmd = [str(c) for c in cmd]
+    p = subprocess.run(cmd, cwd=cwd)
+    if p.returncode:
+        raise SystemExit(f"failed: {' '.join(cmd[:3])} …")
+
+
+def exe(tc: Path, name: str) -> Path:
+    return tc / "bin" / (name + (".cmd" if os.name == "nt" and "clang" in name and "-" in name else ""))
+
+
+def build_adapter(tc: Path):
+    src = HERE / "adapter"
+    shader_tools = tc.parents[3] / "shader-tools" / tc.name
+    suffix = ".exe" if os.name == "nt" else ""
+    for header, shaders in (("surface_composite", ("vert", "frag")), ("alpha_blend", ("vert", "frag"))):
+        names = " and ".join(f"{header}.{stage}" for stage in shaders)
+        sections = [f"// Generated from {names}.\n"]
+        for stage in shaders:
+            binary = CACHE / f"{header}_{stage}.spv"
+            run([shader_tools / ("glslc" + suffix), "--target-env=vulkan1.0", "-O",
+                 src / f"{header}.{stage}", "-o", binary])
+            run([shader_tools / ("spirv-val" + suffix), "--target-env", "vulkan1.0", binary])
+            data = binary.read_bytes()
+            words = struct.unpack(f"<{len(data)//4}I", data)
+            sections.append(f"static const uint32_t {header}_{stage}_spv[] = {{\n" +
+                            "\n".join("    " + ",".join(f"0x{v:08x}" for v in words[i:i+8]) + ","
+                                      for i in range(0, len(words), 8)) + "\n};\n")
+        (src / f"{header}_spv.h").write_text("".join(sections), encoding="utf-8")
+    run([sys.executable, src / "gen_forwarders.py"])
+    inc = openxr_include("adapter")
+    common = ["-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror", "-Wno-gnu-conditional-omitted-operand",
+              "-Wno-missing-field-initializers", "-Wl,-Bsymbolic", "-Wl,-soname,libopenxr_loader_generic.so", "-I", inc]
+    run([exe(tc, "aarch64-linux-android29-clang"), *common, "-Wl,-z,max-page-size=16384", "frame_adapter.c", "forwarders.S",
+         "-ldl", "-llog", "-lm", "-o", ART / "arm64-v8a/libopenxr_loader_generic.so"], cwd=src)
+    run([exe(tc, "armv7a-linux-androideabi29-clang"), *common, "frame_adapter.c", "forwarders_arm32.S", "-ldl", "-llog", "-lm",
+         "-o", ART / "armeabi-v7a/libopenxr_loader_generic.so"], cwd=src)
+
+
+def build_xrlayer(tc: Path):
+    """OpenXR API layer for Linux aarch64 (glibc), loaded by Proton's wineopenxr host loader on the Frame. Freestanding:
+    no libc headers or link-time libs; clock_gettime binds to the process's libc at load time."""
+    src = HERE / "xrlayer"
+    inc = openxr_include("xrlayer")
+    out = ART / "linux-arm64"
+    out.mkdir(parents=True, exist_ok=True)
+    run([tc / "bin/clang", "--target=aarch64-linux-gnu", "-ffreestanding", "-nostdlibinc", "-fno-stack-protector",
+         "-fvisibility=hidden", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror", "-I", src / "include", "-I", inc,
+         f"-ffile-prefix-map={HERE}=native", "-shared", "-nostdlib", "-fuse-ld=lld", "-Wl,--build-id=none",
+         "-Wl,-z,max-page-size=65536", "-Wl,--hash-style=both", "-Wl,-soname,libxr_frameport_timefix.so",
+         "timefix_layer.c", "-o", out / "libxr_frameport_timefix.so"], cwd=src)
+    shutil.copy(src / "XR_APILAYER_FRAMEPORT_timefix.json", out / "XR_APILAYER_FRAMEPORT_timefix.json")
+
+
+def uapi_arm64(tc: Path) -> Path:
+    """Only the kernel UAPI headers of the NDK sysroot (linux/, asm-generic/, drm/, aarch64 asm/), rebuilt every time,
+    so no bionic libc header can end up on a freestanding build's include path."""
+    inc = tc / "sysroot/usr/include"
+    dest = CACHE / "uapi-arm64"
+    shutil.rmtree(dest, ignore_errors=True)
+    for d in ("linux", "asm-generic", "drm"):
+        shutil.copytree(inc / d, dest / d)
+    shutil.copytree(inc / "aarch64-linux-android/asm", dest / "asm")
+    return dest
+
+
+def build_venc(tc: Path):
+    """fp_venc (Linux aarch64, runs on the Frame): SteamVR headset view -> V4L2 hardware H.264 encoder -> stdout, for the
+    live view. Fully static and freestanding (raw syscalls, own _start), so it needs no libc at build or run time.
+    Goes to linux-arm64-bin/, not linux-arm64/ (that folder is uploaded whole as the OpenXR layer)."""
+    src = HERE / "venc"
+    uapi = uapi_arm64(tc)
+    out = ART / "linux-arm64-bin"
+    out.mkdir(parents=True, exist_ok=True)
+    run([tc / "bin/clang", "--target=aarch64-linux-gnu", "-ffreestanding", "-nostdlib", "-nostdlibinc", "-static",
+         "-fno-stack-protector", "-fno-builtin", "-O2", "-Wall", "-Wextra", "-Werror", "-fuse-ld=lld",
+         "-Wl,--build-id=none", "-Wl,-z,max-page-size=65536", "-e", "_start", "-I", src / "include", "-I", uapi,
+         f"-ffile-prefix-map={HERE}=native", "fp_venc.c", "convert.c", "sys.c", "-o", out / "fp_venc"], cwd=src)
+
+
+def build_roomscan(tc: Path):
+    """Offline room reconstruction (Linux aarch64). No libc, headers, generated tables or fetched dependencies."""
+    src = HERE / "roomscan"
+    out = ART / "linux-arm64-bin"
+    out.mkdir(parents=True, exist_ok=True)
+    run([tc / "bin/clang", "--target=aarch64-linux-gnu", "-ffreestanding", "-nostdlib", "-nostdlibinc", "-static",
+         "-fno-stack-protector", "-fno-builtin", "-ffp-contract=off", "-fno-math-errno", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fuse-ld=lld", "-Wl,--build-id=none", "-Wl,-z,max-page-size=65536", "-e", "_start",
+         f"-ffile-prefix-map={HERE}=native", "main.c", "fusion.c", "model.c", "mesh.c", "refine.c", "rules.c",
+         "roomio.c", "platform.c", "-o", out / "fp_roomscan"], cwd=src)
+
+
+OCULUSHMD_IMPORTS = ("CreateEventW", "CreateJobObjectW", "AssignProcessToJobObject", "QueryInformationJobObject",
+                     "CreateProcessW", "ResumeThread", "WaitForSingleObject", "GetExitCodeProcess", "CloseHandle",
+                     "Sleep", "GetCommandLineW", "GetLastError", "GetStdHandle", "WriteFile", "ExitProcess")
+
+
+def build_oculushmd(tc: Path, out: Path | None = None, defines=()):
+    """fp_oculushmd.exe (Windows x64, run by Proton on the Frame): provides the OculusHMDConnected event for Unreal
+    Rift games. Freestanding: no CRT; the kernel32 import library is generated from a .def by llvm-dlltool."""
+    src = HERE / "oculushmd"
+    out = out or ART / "win-x64"
+    out.mkdir(parents=True, exist_ok=True)
+    work = CACHE / "oculushmd"
+    work.mkdir(parents=True, exist_ok=True)
+    (work / "kernel32.def").write_text("LIBRARY kernel32.dll\nEXPORTS\n" + "".join(f"    {n}\n" for n in OCULUSHMD_IMPORTS))
+    run([tc / "bin/llvm-dlltool", "-m", "i386:x86-64", "-d", work / "kernel32.def", "-l", work / "kernel32.lib"])
+    run([tc / "bin/clang", "--target=x86_64-pc-windows-msvc", "-ffreestanding", "-nostdlibinc", "-fno-stack-protector",
+         "-fno-builtin", "-O2", "-Wall", "-Wextra", "-Werror", f"-ffile-prefix-map={HERE}=native", *defines, "-c",
+         "fp_oculushmd.c", "-o", work / "fp_oculushmd.obj"], cwd=src)
+    run([tc / "bin/lld-link", "/nologo", "/Brepro", "/nodefaultlib", "/entry:start", "/subsystem:console",
+         "/dynamicbase", "/highentropyva", "/nxcompat", work / "fp_oculushmd.obj", work / "kernel32.lib",
+         f"/out:{out / 'fp_oculushmd.exe'}"])
+
+
+VRSETTINGS_IMPORTS = ("LoadLibraryA", "GetProcAddress", "GetCommandLineA", "GetStdHandle", "WriteFile", "ExitProcess")
+
+
+def build_vrsettings(tc: Path):
+    """fp_vrsettings.exe (Windows x64, run on the PC): SteamVR settings through OpenVR's IVRSettings (see the source)."""
+    src = HERE / "vrsettings"
+    out = ART / "win-x64"
+    out.mkdir(parents=True, exist_ok=True)
+    work = CACHE / "vrsettings"
+    work.mkdir(parents=True, exist_ok=True)
+    (work / "kernel32.def").write_text("LIBRARY kernel32.dll\nEXPORTS\n" + "".join(f"    {n}\n" for n in VRSETTINGS_IMPORTS))
+    run([tc / "bin/llvm-dlltool", "-m", "i386:x86-64", "-d", work / "kernel32.def", "-l", work / "kernel32.lib"])
+    run([tc / "bin/clang", "--target=x86_64-pc-windows-msvc", "-ffreestanding", "-nostdlibinc", "-fno-stack-protector",
+         "-fno-builtin", "-O2", "-Wall", "-Wextra", "-Werror", f"-ffile-prefix-map={HERE}=native", "-c",
+         "fp_vrsettings.c", "-o", work / "fp_vrsettings.obj"], cwd=src)
+    run([tc / "bin/lld-link", "/nologo", "/Brepro", "/nodefaultlib", "/entry:start", "/subsystem:console",
+         "/dynamicbase", "/highentropyva", "/nxcompat", work / "fp_vrsettings.obj", work / "kernel32.lib",
+         f"/out:{out / 'fp_vrsettings.exe'}"])
+
+
+VROVERLAY_IMPORTS = VRSETTINGS_IMPORTS + ("Sleep",)
+
+
+def build_vroverlay_probe(tc: Path):
+    """fp_vroverlay_probe.exe (Windows x64 diagnostic, run under Proton on the Frame): does an OpenVR overlay app show
+    up? Not shipped: written to native/.cache/vroverlay_probe/ (opt-in: --only vroverlay_probe)."""
+    src = HERE / "vroverlay_probe"
+    work = CACHE / "vroverlay_probe"
+    work.mkdir(parents=True, exist_ok=True)
+    (work / "kernel32.def").write_text("LIBRARY kernel32.dll\nEXPORTS\n" + "".join(f"    {n}\n" for n in VROVERLAY_IMPORTS))
+    run([tc / "bin/llvm-dlltool", "-m", "i386:x86-64", "-d", work / "kernel32.def", "-l", work / "kernel32.lib"])
+    run([tc / "bin/clang", "--target=x86_64-pc-windows-msvc", "-ffreestanding", "-nostdlibinc", "-fno-stack-protector",
+         "-fno-builtin", "-O2", "-Wall", "-Wextra", "-Werror", f"-ffile-prefix-map={HERE}=native", "-c",
+         "fp_vroverlay_probe.c", "-o", work / "fp_vroverlay_probe.obj"], cwd=src)
+    run([tc / "bin/lld-link", "/nologo", "/Brepro", "/nodefaultlib", "/entry:start", "/subsystem:console",
+         "/dynamicbase", "/highentropyva", "/nxcompat", work / "fp_vroverlay_probe.obj", work / "kernel32.lib",
+         f"/out:{work / 'fp_vroverlay_probe.exe'}"])
+
+
+def build_bridge(tc: Path, output="libvrapi.so"):
+    src = HERE / "vrapi-bridge"
+    inc = openxr_include("bridge")
+    run([tc / "bin/clang++", "--target=aarch64-linux-android29", f"--sysroot={tc / 'sysroot'}", "-std=c++17", "-O2", "-g",
+         "-fPIC", f"-ffile-prefix-map={src}=native/vrapi-bridge", f"-ffile-prefix-map={CACHE}=native/.cache",
+         f"-ffile-prefix-map={CACHE.resolve()}=native/.cache",  # a symlinked cache (worktrees)
+         "-fvisibility=hidden", "-fvisibility-inlines-hidden", "-Wall", "-Wextra",
+         "-Wno-missing-field-initializers", "-Werror=return-type", "-DXR_NO_PROTOTYPES", "-DXR_USE_PLATFORM_ANDROID",
+         "-DXR_USE_GRAPHICS_API_VULKAN", "-DXR_USE_GRAPHICS_API_OPENGL_ES", "-DXR_USE_TIMESPEC", f"-I{inc}", "-shared",
+         "-static-libstdc++", "runtime.cpp", "graphics.cpp", "input.cpp", "-Wl,--no-undefined",
+         "-Wl,-z,max-page-size=16384", "-Wl,--version-script=exports.map", "-llog", "-landroid", "-lvulkan", "-lEGL",
+         "-lGLESv3", "-ldl", "-o", ART / f"arm64-v8a/{output}"], cwd=src)
+
+
+def build_compat(tc: Path):
+    src = HERE / "platformcompat"
+    run([tc / "bin/clang++", "--target=aarch64-linux-android29", f"--sysroot={tc / 'sysroot'}", "-std=c++17", "-O2",
+         "-fPIC", "-fvisibility=hidden", "-fno-exceptions", "-fno-rtti", "-ffunction-sections", "-fdata-sections",
+         "-Wall", "-Wextra", "-Werror=return-type", "-shared", "-nostdlib++", "message_type.cpp", "-Wl,--no-undefined",
+         "-Wl,--gc-sections", "-Wl,-z,max-page-size=16384", "-Wl,-soname,libovrplatformcompat.so",
+         "-Wl,--version-script=exports.map", "-o", ART / "arm64-v8a/libovrplatformcompat.so"], cwd=src)
+
+
+def build_langpack(tc: Path):
+    """Language packs from the game's files (see langpack/langpack.c): DT_NEEDED-injected into overport's platform loader."""
+    src = HERE / "langpack"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fvisibility=hidden", f"-ffile-prefix-map={src}=native/langpack", "-Wl,--no-undefined",
+         "-Wl,-z,max-page-size=16384", "-Wl,-soname,libfp_langpack.so", "langpack.c", "-ldl", "-llog",
+         "-o", ART / "arm64-v8a/libfp_langpack.so"], cwd=src)
+
+
+def build_glshim(tc: Path):
+    src = HERE / "glshim"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-Wno-unused-function", "-Wno-incompatible-pointer-types", "-fvisibility=hidden", "-Wl,-soname,libglshim.so",
+         "-Wl,-z,max-page-size=16384", "glshim.c", "-ldl", "-llog", "-o", ART / "arm64-v8a/libglshim.so"], cwd=src)
+
+
+def build_eglfmt(tc: Path):
+    """Depth-format shim (see glshim/eglfmt.c) that GL-to-GLES wrappers (QuestCraft's LTW) load in place of libEGL.so.
+    Named libfpg.so: no longer than "libEGL.so", whose dlopen string in the wrapper is rewritten in place. Linked to
+    libEGL so a dlsym on its handle still finds every EGL function."""
+    src = HERE / "glshim"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fvisibility=hidden", "-Wl,-soname,libfpg.so", "-Wl,-z,max-page-size=16384", "eglfmt.c",
+         "-Wl,--no-as-needed", "-lEGL", "-Wl,--as-needed", "-ldl", "-llog", "-o", ART / "arm64-v8a/libfpg.so"], cwd=src)
+
+
+def build_glmv(tc: Path):
+    """Single-view draws of OVR_multiview programs (see glmv/glmv.c, frame.gl_multiview_fbo). Named libfpglmv.so: as
+    long as "libGLESv3.so", whose dlopen string in the engine is rewritten in place. Linked to libGLESv3 so a dlsym on
+    its handle still finds every GL function it doesn't wrap."""
+    src = HERE / "glmv"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fvisibility=hidden", f"-ffile-prefix-map={src}=native/glmv", "-Wl,-soname,libfpglmv.so",
+         "-Wl,-z,max-page-size=16384", "glmv.c", "-Wl,--no-as-needed", "-lGLESv3", "-Wl,--as-needed", "-lEGL", "-ldl",
+         "-llog", "-o", ART / "arm64-v8a/libfpglmv.so"], cwd=src)
+
+
+def build_ovrtrace(tc: Path):
+    """Meta Platform SDK tracer (see ovrtrace/ovrtrace.c): diagnostics, the game's engine library loads it first."""
+    src = HERE / "ovrtrace"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-Wl,-soname,libfp_ovrtrace.so", "-Wl,-z,max-page-size=16384", "ovrtrace.c", "-ldl", "-llog",
+         "-o", ART / "arm64-v8a/libfp_ovrtrace.so"], cwd=src)
+
+
+def build_xrruntime(tc: Path):
+    src = HERE / "xrruntime"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-O2", "-fPIC", "-Wall", "-Wextra", "-Werror",
+         f"-ffile-prefix-map={ROOT}=.", "-fvisibility=hidden", "-Wl,-Bsymbolic",
+         "-I", openxr_include("adapter"), "-Wl,-soname,libfp_xrruntime.so",
+         "-Wl,-z,max-page-size=16384", "xrruntime.c", "-ldl", "-llog",
+         "-o", ART / "arm64-v8a/libfp_xrruntime.so"], cwd=src)
+
+
+def build_xrshim(tc: Path):
+    """FrameBridge extension shim (see xrshim/xrshim.c): DT_NEEDED-injected in front of overport's libopenxr_loader.so."""
+    src = HERE / "xrshim"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fvisibility=hidden", "-I", openxr_include("adapter"), "-Wl,-soname,libframe_xrshim.so",
+         "-Wl,-z,max-page-size=16384", "xrshim.c", "-ldl", "-llog", "-o", ART / "arm64-v8a/libframe_xrshim.so"], cwd=src)
+
+
+def build_vkshim(tc: Path):
+    """Vulkan shim (see vkshim/vkshim.c): the engine's dlopen("libvulkan.so") string is pointed at it."""
+    src = HERE / "vkshim"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fvisibility=hidden", "-Wl,-soname,libfp_vk.so", "-Wl,-z,max-page-size=16384", "vkshim.c",
+         "-Wl,--no-as-needed", "-lvulkan", "-Wl,--as-needed", "-ldl", "-llog", "-o", ART / "arm64-v8a/libfp_vk.so"],
+        cwd=src)
+
+
+def build_zinkfix(tc: Path):
+    """Shader-fix Vulkan layer for OpenGL ES games (see zinkfix/zinkfix.c): between Zink and the driver."""
+    src = HERE / "zinkfix"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fvisibility=hidden", "-Wl,-soname,libVkLayer_fp_shaderfix.so", "-Wl,-z,max-page-size=16384", "zinkfix.c",
+         "-ldl", "-llog", "-o", ART / "arm64-v8a/libVkLayer_fp_shaderfix.so"], cwd=src)
+
+
+def build_foveation(tc: Path):
+    """Optional coarse-fragment visualization, injected into a game's renderer."""
+    build_bridge(tc, "libvrapi_foveation.so")
+    src = HERE / "foveation"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fvisibility=hidden", f"-ffile-prefix-map={src}=native/foveation",
+         "-Wl,-soname,libVkLayer_fdm_darken.so", "-Wl,-z,max-page-size=16384", "darken.c",
+         "-ldl", "-llog", "-lm", "-o", ART / "arm64-v8a/libVkLayer_fdm_darken.so"], cwd=src)
+
+
+def build_ovrpshim(tc: Path):
+    """OVRPlugin frame-loop shim (see ovrpshim/ovrpshim.c) for Unity 2017-2018 built-in Oculus support."""
+    src = HERE / "ovrpshim"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fvisibility=hidden", "-Wl,-soname,libfp_ovrp.so", "-Wl,-z,max-page-size=16384", "ovrpshim.c", "-ldl",
+         "-llog", "-o", ART / "arm64-v8a/libfp_ovrp.so"], cwd=src)
+
+
+def build_tlskeys(tc: Path):
+    """Thread-key pool for Unity (see tlskeys/tlskeys.c, patch frame.unity_tls_key_pool)."""
+    src = HERE / "tlskeys"
+    run([exe(tc, "aarch64-linux-android29-clang"), "-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
+         "-fvisibility=hidden", f"-ffile-prefix-map={HERE}=native", "-Wl,-soname,libfp_tkeys.so",
+         "-Wl,-z,max-page-size=16384", "tlskeys.c", "-llog", "-o", ART / "arm64-v8a/libfp_tkeys.so"], cwd=src)
+
+
+def build_luajit(tc: Path):
+    run([sys.executable, HERE / "luajit/build.py", "--clang-dir", tc / "bin",
+         "--out", ART / "arm64-v8a/libfp_luajit.so"])
+
+
+def build_a32(tc: Path):
+    """The 32-bit ARM bridge (a32translator/bridge, patch frame.a32_bridge): its own build script, then the three
+    files every bridged game ships (liba32rt.so is 32-bit ARM code: it runs inside the translator)."""
+    bridge = HERE / "a32translator" / "bridge"
+    run([sys.executable, bridge / "build.py", "--ndk", tc.parents[3]], cwd=bridge)
+    for name in ("liba32bridge.so", "liba32rt.so", "liba32stub.so"):
+        shutil.copyfile(HERE / "a32translator/out/bridge" / name, ART / "arm64-v8a" / name)
+
+
+# compile-only stand-ins for the Android classes the Java sources reference (not dexed; the device provides them)
+ANDROID_STAND_INS = {
+    "android/content/Context.java": "package android.content;\npublic abstract class Context {}\n",
+    "android/os/Bundle.java": "package android.os;\npublic final class Bundle {}\n",
+    "android/net/Uri.java": "package android.net;\npublic abstract class Uri {\n"
+                            "    public abstract String getScheme();\n}\n",
+    "android/content/Intent.java": "package android.content;\npublic class Intent {\n"
+                                   "    public android.net.Uri getData() { return null; }\n}\n",
+    "android/app/Activity.java": "package android.app;\npublic class Activity extends android.content.Context {\n"
+                                 "    protected void onCreate(android.os.Bundle b) {}\n"
+                                 "    public android.content.Intent getIntent() { return null; }\n"
+                                 "    public void finish() {}\n}\n",
+    "android/util/Log.java": "package android.util;\npublic final class Log {\n"
+                             "    public static int i(String t, String m) { return 0; }\n"
+                             "    public static int w(String t, String m) { return 0; }\n}\n",
+}
+
+
+def _java_dex(name: str, sources: Path, artifact: str):
+    """javac (Java 8) + d8 (newest build-tools, min API 24) of `sources` into artifacts/dex/<artifact>."""
+    javac = shutil.which("javac")
+    if not javac:
+        raise SystemExit("javac not found: install a JDK (e.g. Temurin 21) to rebuild the Java stubs")
+    url, sha1 = repo_archive(next(p for p in _build_tools_paths()))
+    bt = fetch(url, CACHE / Path(url).name, sha1)
+    d8 = CACHE / "d8.jar"
+    if not d8.exists():
+        with zipfile.ZipFile(bt) as z:
+            d8.write_bytes(z.read(next(m for m in z.namelist() if m.endswith("lib/d8.jar"))))
+    out = CACHE / f"java-classes-{name}"
+    shutil.rmtree(out, ignore_errors=True)
+    android = CACHE / "android-stubs"
+    for rel, text in ANDROID_STAND_INS.items():
+        (android / rel).parent.mkdir(parents=True, exist_ok=True)
+        (android / rel).write_text(text)
+    android_out = CACHE / "android-classes"
+    run([javac, "--release", "8", "-d", android_out, *sorted(android.rglob("*.java"))])
+    srcs = sorted(sources.rglob("*.java"))
+    run([javac, "--release", "8", "-cp", android_out, "-d", out, *srcs])
+    classes = sorted(out.rglob("*.class"))
+    dexdir = CACHE / f"dex-{name}"
+    shutil.rmtree(dexdir, ignore_errors=True)
+    dexdir.mkdir(parents=True)
+    run(["java", "-cp", d8, "com.android.tools.r8.D8", "--release", "--min-api", "24", "--output", dexdir, *classes])
+    shutil.copy(dexdir / "classes.dex", ART / "dex" / artifact)
+
+
+def build_dex():
+    _java_dex("oculusos", HERE / "java-stubs", "oculusos-stubs.dex")
+
+
+def build_handoff():
+    """frame.browser_handoff's browser stand-in activity (java-handoff/)."""
+    _java_dex("handoff", HERE / "java-handoff", "browser-handoff.dex")
+
+
+def _build_tools_paths():
+    idx = ElementTree.fromstring(fetch(REPO + "repository2-3.xml", CACHE / "repository2-3.xml").read_text())
+    paths = [p.get("path") for p in idx.iter("remotePackage") if p.get("path", "").startswith("build-tools;")
+             and "rc" not in p.get("path")]
+    return sorted(paths, key=lambda s: [int(x) for x in re.findall(r"\d+", s)], reverse=True)
+
+
+def write_sums():
+    lines = []
+    for f in sorted(p for p in ART.rglob("*") if p.is_file() and p.name != "SHA256SUMS"):
+        lines.append(f"{hashlib.sha256(f.read_bytes()).hexdigest()}  ./{f.relative_to(ART).as_posix()}")
+    (ART / "SHA256SUMS").write_text("\n".join(lines) + "\n")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--only", default="adapter,bridge,compat,langpack,glshim,eglfmt,glmv,ovrtrace,dex,xrlayer,oculushmd,xrruntime,xrshim,vkshim,zinkfix,foveation,ovrpshim,tlskeys,luajit,vrsettings,venc,roomscan,a32,handoff")
+    ap.add_argument("--ndk")
+    args = ap.parse_args()
+    parts = set(args.only.split(","))
+    for d in ("arm64-v8a", "armeabi-v7a", "dex"):
+        (ART / d).mkdir(parents=True, exist_ok=True)
+    tc = clang_dir(ndk(args.ndk)) if parts - {"dex", "handoff"} else None
+    steps = {"adapter": lambda: build_adapter(tc), "bridge": lambda: build_bridge(tc), "compat": lambda: build_compat(tc),
+             "xrruntime": lambda: build_xrruntime(tc), "langpack": lambda: build_langpack(tc),
+             "glshim": lambda: build_glshim(tc), "eglfmt": lambda: build_eglfmt(tc), "glmv": lambda: build_glmv(tc), "ovrtrace": lambda: build_ovrtrace(tc), "xrshim": lambda: build_xrshim(tc), "dex": build_dex, "handoff": build_handoff, "xrlayer": lambda: build_xrlayer(tc),
+             "oculushmd": lambda: build_oculushmd(tc), "vkshim": lambda: build_vkshim(tc),
+             "zinkfix": lambda: build_zinkfix(tc),
+             "foveation": lambda: build_foveation(tc),
+             "ovrpshim": lambda: build_ovrpshim(tc), "tlskeys": lambda: build_tlskeys(tc),
+             "luajit": lambda: build_luajit(tc),
+             "vrsettings": lambda: build_vrsettings(tc), "venc": lambda: build_venc(tc),
+             "roomscan": lambda: build_roomscan(tc),
+             "vroverlay_probe": lambda: build_vroverlay_probe(tc), "a32": lambda: build_a32(tc)}
+    for name in ("adapter", "bridge", "compat", "langpack", "glshim", "eglfmt", "glmv", "ovrtrace", "xrruntime", "xrshim", "vkshim", "zinkfix", "foveation", "ovrpshim", "tlskeys", "luajit", "dex", "handoff", "xrlayer", "oculushmd", "vrsettings", "venc",
+                 "roomscan", "vroverlay_probe", "a32"):
+        if name in parts:
+            log(f"build {name}")
+            steps[name]()
+    write_sums()
+    log("artifacts/SHA256SUMS updated")
+
+
+if __name__ == "__main__":
+    main()

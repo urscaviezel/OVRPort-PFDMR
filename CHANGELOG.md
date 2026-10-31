@@ -1,5 +1,7 @@
 # 0.1.0-beta.12 (local test build)
 
+- Added six optional, guarded community compatibility profiles for hand mesh, legacy Unity frames, direct VrApi, platform callbacks, thread keys and app-owned storage repair. Required stereo/resolution settings are included by the matching profiles.
+
 - Generalized the optional 1800 x 1664 render-resolution label.
 - Initialize configuration for fresh-APK resolution patching.
 - Preserve unrelated runtime configuration fields during patch updates; reject malformed config instead of silently resetting it.
@@ -60,13 +62,13 @@
 - Validates both native code sites before patching; supports restoring its own edits when deselected.
 
 
-## 0.1.0-beta.2 — 2026-10-13
+## 0.1.0-beta.2 â€” 2026-10-13
 
 - Add optional Unreal 48 kHz audio correction, disabled by default.
 - Preserve existing settings and support restoration of the previous sample rate.
 - Shorten release documentation; compatibility information is maintained separately on PFDhub.
 
-## 0.1.0-beta.1 — 2026-10-11
+## 0.1.0-beta.1 â€” 2026-10-11
 
 - First public experimental PFDMR Edition release.
 - PFDMR OpenXR compatibility and optional parallel-eye stereo correction.

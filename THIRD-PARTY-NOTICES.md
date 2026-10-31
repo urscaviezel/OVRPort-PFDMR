@@ -44,3 +44,8 @@ The Gradle wrapper is retained from upstream. The Windows .NET Framework launche
 ## Legacy Unreal Quest compatibility research
 
 The Quest startup/controller compatibility finding was informed by [FramePort](https://github.com/spoopyghosty0/frameport/blob/main/src/frameport/patches/frame/unreal_santacruz.py), including the investigation credited there to Klownicle. OVRPort-PFDMR uses its own Java implementation with ELF validation and reversible edits. No FramePort executable or Python module is bundled.
+
+
+## FramePort community compatibility helpers (Beta 12)
+
+FramePort 1.4.0, commit 186d4f629064c8c894626f60ef0e9b27155a7ccc, https://github.com/spoopyghosty0/frameport, GPL-3.0-only. Legacy Unity frame loop, VrApi bridge, org-scoped ID and thread-key pool helpers are the tested upstream prebuilts from the community integration kit. The org-ID helper changes only its org-ID/language configuration markers. Matching source, build driver, dependency notices and licenses are included under third-party/frameport-1.4.0. CommunityElf adapts the upstream ELF-editing algorithm to bounded Java ARM64 operations. Public upstream copyright notices are retained. Android startup maintenance is implemented locally from the documented app-owned operations. Community test evidence is from the integration kit dated 2026-10-31; it does not establish gameplay on other builds.

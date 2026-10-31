@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/spoopyghosty0/frameport",
+  "commit": "186d4f629064c8c894626f60ef0e9b27155a7ccc",
+  "version": "1.4.0",
+  "commit_date_utc": "2026-10-26T00:03:58Z",
+  "commit_tree": "d31b2c7423e35d741f0189bb2047dd89a5eb9711",
+  "source_archive_sha256": "12e73a9559c86e63e4cc3357ede41245cf1f1613a6d32036b98033ef552407e8",
+  "verification": "Archive at pinned commit compared byte-for-byte with every cached FramePort source/helper used. No locally changed upstream source files found. Native helper binaries were downloaded upstream prebuilts; not compiled locally for the successful gameplay tests."
+}

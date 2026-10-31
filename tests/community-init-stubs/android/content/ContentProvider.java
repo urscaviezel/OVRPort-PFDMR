@@ -1,0 +1,1 @@
+package android.content; public abstract class ContentProvider { public static Context context; public Context getContext(){return context;} public abstract boolean onCreate(); }

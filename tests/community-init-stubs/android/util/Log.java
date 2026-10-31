@@ -1,0 +1,1 @@
+package android.util; public class Log {public static int i(String a,String b){return 0;}public static int e(String a,String b,Throwable e){throw new AssertionError(b,e);} }

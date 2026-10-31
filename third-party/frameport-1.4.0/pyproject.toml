@@ -1,0 +1,109 @@
+[project]
+name = "frameport"
+dynamic = ["version"]
+description = "Run Meta Quest, Android and PC VR games on the Valve Steam Frame: per-game patches, validation and one-click install."
+readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+authors = [{ name = "spoopyghosty0" }]
+keywords = ["steam-frame", "vr", "openxr", "meta-quest", "android", "lepton", "proton", "revive"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: X11 Applications",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "flet>=1.0",
+    "flet-desktop>=1.0",
+    "flet-dropzone>=0.4.0",  # drag-and-drop uploads in the Files tab (packaged app only; Apache-2.0)
+    # the live view inside the window (media_kit/libmpv; Apache-2.0). Not on Linux: there the plugin links libmpv.so.1
+    # and a bundle with it wouldn't start without that library (Linux plays in an mpv window or the browser instead).
+    # flet-video pins flet exactly: keep it at the installed flet's version.
+    "flet-video==1.0.2; sys_platform != 'linux'",
+    "paramiko>=3.4",
+    "zeroconf>=0.132",
+    "psutil>=5.9",
+    "pyelftools>=0.31",
+    "capstone>=5.0",
+    "UnityPy>=1.20",
+    "PyYAML>=6.0",
+    "requests>=2.31",
+    "typer>=0.12",
+    "pyaxmlparser>=0.3.31",
+]
+
+[project.urls]
+Homepage = "https://github.com/spoopyghosty0/frameport"
+Issues = "https://github.com/spoopyghosty0/frameport/issues"
+Releases = "https://github.com/spoopyghosty0/frameport/releases"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-timeout>=2.3", "ruff>=0.6", "flet-web>=1.0", "flet-cli>=1.0", "playwright>=1.40"]
+
+[project.scripts]
+frameport = "frameport.cli:main"
+frameport-gui = "frameport.ui.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/frameport/_version.py"  # the single source of the version
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/frameport"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"catalog" = "frameport/_data/catalog"
+"artifacts" = "frameport/_data/artifacts"
+"agent" = "frameport/_data/agent"
+"bootstrap" = "frameport/_data/bootstrap"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 120
+markers = [
+    "games: needs the local game dumps (FRAMEPORT_GAMES=<downloads dir>)",
+    "native: compiles native code with the NDK from native/build.py (FRAMEPORT_NATIVE_TESTS=1; slow)",
+]
+
+[tool.flet]
+org = "dev.frameport"
+product = "FramePort"
+company = "FramePort"
+
+[tool.flet.app]
+path = "src"
+module = "main"
+
+# jni_flutter (1.0.4 and 1.0.4+1, 2026-10) generates bindings that require jni ^1.1.0, while Flet's build template pins
+# jni 1.0.0: every bundle failed ("generated bindings expect package:jni ^1.1.0"). jni 1.1 also satisfies bindings
+# made for 1.0 (the check is "same major, at least this minor"). Remove once Flet's template moves to jni 1.1.
+[tool.flet.flutter.pubspec.dependency_overrides]
+jni = "1.1.0"
+
+[tool.flet.macos]
+entitlement."com.apple.security.files.user-selected.read-write" = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["native", "src/frameport/_data", ".claude"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E731",  # lambdas assigned to names: used for small Flet callbacks
+    "B008",  # function calls in defaults: Typer options
+    "UP007", "UP045",  # Optional[...] in Typer signatures (Typer reads the annotations)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["frameport"]

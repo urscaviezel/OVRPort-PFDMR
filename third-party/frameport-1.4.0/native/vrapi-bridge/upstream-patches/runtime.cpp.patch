@@ -1,0 +1,530 @@
+--- runtime.cpp.orig
++++ runtime.cpp
+@@ -1,8 +1,11 @@
+ // SPDX-License-Identifier: GPL-3.0-only
+ #include "runtime.h"
++#include "fov_cache.h"
+ #include <algorithm>
+ #include <chrono>
++#include <utility>
+ #include <cmath>
++#include <cstdio>
+ #include <cstring>
+ #include <dlfcn.h>
+ #include <thread>
+@@ -45,6 +48,56 @@
+     auto& s = runtime();
+     return xrOk(s.xr.xrGetInstanceProcAddr(s.instance, name, target), name) && *target;
+ }
++// FramePort: the live FOV of earlier sessions for games that read it before any session (see fov_cache.h)
++static bool savedFovPath(char* buffer, size_t size) {
++    char cmdline[256] = {0};
++    if (FILE* f = std::fopen("/proc/self/cmdline", "r")) {
++        cmdline[std::fread(cmdline, 1, sizeof(cmdline) - 1, f)] = 0;
++        std::fclose(f);
++    }
++    return fovcache::path(cmdline, buffer, size);
++}
++static void loadSavedFov() {
++    auto& s = runtime();
++    char path[512], text[256] = {0};
++    if (!savedFovPath(path, sizeof(path))) return;
++    FILE* f = std::fopen(path, "r");
++    if (!f) return;
++    text[std::fread(text, 1, sizeof(text) - 1, f)] = 0;
++    std::fclose(f);
++    float fov[2];
++    if (!fovcache::parse(text, fov)) return;
++    s.savedFovDegrees = {fov[0], fov[1]};
++    s.savedFovValid = true;
++    OVP_LOG("FOV of an earlier session: %.2f x %.2f degrees", fov[0], fov[1]);
++}
++static void saveLiveFov() {
++    auto& s = runtime();
++    const float now[2] = {s.locatedFovDegrees[0], s.locatedFovDegrees[1]};
++    const float saved[2] = {s.savedFovDegrees[0], s.savedFovDegrees[1]};
++    if (!s.locatedFovValid || !fovcache::plausible(now[0], now[1]) || !fovcache::changed(s.savedFovValid, saved, now))
++        return;
++    // Only the private foveation bridge opts in; ordinary games retain their cache policy.
++    static double lastCacheWrite = -10.0;
++    const double cacheTime = secondsNow();
++    const char* limitCache = std::getenv("FRAMEPORT_VRAPI_KEEP_FOCUSED_IMAGE");
++    if (limitCache && std::strcmp(limitCache, "1") == 0 && s.savedFovValid && cacheTime - lastCacheWrite < 10.0)
++        return;
++    lastCacheWrite = cacheTime;
++    s.savedFovDegrees = {now[0], now[1]};  // also when it can't be written: tried once per change, not every frame
++    s.savedFovValid = true;
++    char path[512], tmp[540], text[96];
++    if (!savedFovPath(path, sizeof(path))) return;
++    std::snprintf(tmp, sizeof(tmp), "%s.tmp", path);
++    FILE* f = std::fopen(tmp, "w");
++    if (!f) return;
++    const int n = fovcache::format(text, sizeof(text), now);
++    const bool ok = n > 0 && std::fwrite(text, 1, static_cast<size_t>(n), f) == static_cast<size_t>(n);
++    if (std::fclose(f) == 0 && ok && std::rename(tmp, path) == 0)
++        OVP_LOG("live FOV %.2f x %.2f degrees saved for the next start", now[0], now[1]);
++    else
++        std::remove(tmp);
++}
+ static bool referenceSpace(XrReferenceSpaceType type, const XrPosef& pose, XrSpace& space) {
+     auto& s = runtime();
+     XrReferenceSpaceCreateInfo info{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+@@ -52,6 +105,27 @@
+     info.poseInReferenceSpace = pose;
+     return xrOk(s.xr.xrCreateReferenceSpace(s.session, &info, &space), "xrCreateReferenceSpace");
+ }
++// The app space for the eye-level origin `eye` (LOCAL coordinates): VrApi's LOCAL_FLOOR and STAGE spaces put their
++// origin on the floor below it (the runtime's STAGE floor, else a standing eye height of 1.6 m)
++static bool appSpaceFor(const XrPosef& eye) {
++    auto& s = runtime();
++    XrPosef origin = eye;
++    if (s.trackingSpace == 1 || s.trackingSpace == 3) {
++        origin.position.y -= 1.6f;
++        XrSpaceLocation floor{XR_TYPE_SPACE_LOCATION};
++        if (s.stageSpace && s.frame.predictedDisplayTime &&
++            XR_SUCCEEDED(s.xr.xrLocateSpace(s.stageSpace, s.localSpace, s.frame.predictedDisplayTime, &floor)) &&
++            (floor.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT))
++            origin.position.y = floor.pose.position.y;
++    }
++    XrSpace next = XR_NULL_HANDLE;
++    if (!referenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, origin, next)) return false;
++    if (s.appSpace) s.xr.xrDestroySpace(s.appSpace);
++    s.appSpace = next;
++    s.eyeOrigin = eye;
++    s.centerEyeTransform = s.trackingTransform = fromXrPose(origin);
++    return true;
++}
+ static void destroySession() {
+     auto& s = runtime();
+     if (!s.session) return;
+@@ -75,6 +149,7 @@
+     s.timeMapped = false;
+     s.locatedFovValid = false;
+     s.initialRecenterPending = false;
++    s.recenterPending = false;
+     s.timeOffset = 0;
+ }
+ static void shutdown() {
+@@ -94,6 +169,9 @@
+     s.locatedFovValid = false;
+     s.recommendedFovDegrees = {};
+     s.locatedFovDegrees = {};
++    s.savedFovValid = false;
++    s.savedFovDegrees = {};
++    s.loggedFovSource = -1;
+     s.recenterCount = 0;
+     s.loggedDisplayRefreshRateSource = DisplayRefreshRateSource::Unqueried;
+     s.loggedDisplayRefreshRate = 0;
+@@ -145,6 +223,16 @@
+                     return false;
+                 }
+             }
++        } else if (event.type == XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING) {
++            // The app space is LOCAL plus the head's yaw at the last recenter. The runtime's recenter moves LOCAL to
++            // the head, so that offset would turn the view by the old yaw (e.g. 90 degrees to the side) unless the
++            // origin is taken again from the head.
++            const auto& change = reinterpret_cast<const XrEventDataReferenceSpaceChangePending&>(event);
++            if (change.session == s.session && change.referenceSpaceType == XR_REFERENCE_SPACE_TYPE_LOCAL) {
++                OVP_LOG("runtime recenter (LOCAL change pending, time %lld)", (long long)change.changeTime);
++                s.recenterPending = true;
++                s.recenterTime = change.changeTime;
++            }
+         } else if (event.type == XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING) {
+             s.running = false;
+             return false;
+@@ -176,9 +264,44 @@
+     }
+     return true;
+ }
++static bool createGlesSession() {
++    auto& s = runtime();
++    if (!s.getGlesRequirements) { OVP_ERROR("Runtime lacks XR_KHR_opengl_es_enable"); return false; }
++    XrGraphicsRequirementsOpenGLESKHR requirements{XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR};
++    if (!xrOk(s.getGlesRequirements(s.instance, s.system, &requirements), "xrGetOpenGLESGraphicsRequirementsKHR")) return false;
++    XrGraphicsBindingOpenGLESAndroidKHR binding{XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
++    binding.display = s.eglDisplay;
++    binding.config = s.eglConfig;
++    binding.context = s.eglContext;
++    XrSessionCreateInfo create{XR_TYPE_SESSION_CREATE_INFO};
++    create.next = &binding;
++    create.systemId = s.system;
++    if (!xrOk(s.xr.xrCreateSession(s.instance, &create, &s.session), "xrCreateSession(GLES)")) return false;
++    OVP_LOG("Created OpenXR session with the application's GLES context");
++    return true;
++}
+ bool ensureSession(VkQueue preferredQueue) {
+     auto& s = runtime();
+     if (s.session) return !preferredQueue || preferredQueue == s.queue;
++    if (s.gles) {
++        if (!s.instance || !createGlesSession()) return false;
++        const XrPosef identityPose{{0, 0, 0, 1}, {0, 0, 0}};
++        if (!referenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, identityPose, s.localSpace) ||
++            !referenceSpace(XR_REFERENCE_SPACE_TYPE_VIEW, identityPose, s.viewSpace) ||
++            !referenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, identityPose, s.appSpace)) {
++            destroySession();
++            return false;
++        }
++        XrReferenceSpaceCreateInfo stageInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
++        stageInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
++        stageInfo.poseInReferenceSpace = identityPose;
++        s.xr.xrCreateReferenceSpace(s.session, &stageInfo, &s.stageSpace);
++        if (!input::initialize()) { destroySession(); return false; }
++        s.trackingTransform = {{0, 0, 0, 1}, {0, 0, 0}};
++        s.centerEyeTransform = s.trackingTransform;
++        s.initialRecenterPending = true;
++        return true;
++    }
+     if (!s.instance || !s.vk.Device) return false;
+     VkPhysicalDevice expected = VK_NULL_HANDLE;
+     if (!xrOk(s.xr.xrGetVulkanGraphicsDeviceKHR(s.instance, s.system, s.vk.Instance, &expected), "xrGetVulkanGraphicsDeviceKHR") || expected != s.vk.PhysicalDevice) {
+@@ -246,12 +369,41 @@
+         // OpenXR LOCAL need not be eye-level. Establish VrApi's initial yaw/position
+         // origin from a tracked, visible head before exposing it to the application.
+         XrSpaceLocation head{XR_TYPE_SPACE_LOCATION};
+-        constexpr XrSpaceLocationFlags tracked =
+-            XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT |
+-            XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT | XR_SPACE_LOCATION_POSITION_TRACKED_BIT;
+-        if ((s.sessionState != XR_SESSION_STATE_VISIBLE && s.sessionState != XR_SESSION_STATE_FOCUSED) ||
+-            !xrOk(s.xr.xrLocateSpace(s.viewSpace, s.localSpace, s.frame.predictedDisplayTime, &head), "initial eye-level origin") ||
+-            (head.locationFlags & tracked) != tracked) {
++        // Steam Frame reports poses as VALID without the TRACKED bits here, so only validity is required.
++        constexpr XrSpaceLocationFlags tracked = XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT;
++        const bool visible = s.sessionState == XR_SESSION_STATE_VISIBLE || s.sessionState == XR_SESSION_STATE_FOCUSED;
++        if (!s.locatedFovValid) {
++            // The views' FOV doesn't depend on tracking: take it as soon as the session runs (also headless, without
++            // anyone wearing the headset), so it is saved for games that ask before their next session.
++            XrViewLocateInfo fovInfo{XR_TYPE_VIEW_LOCATE_INFO};
++            fovInfo.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
++            fovInfo.displayTime = s.frame.predictedDisplayTime;
++            fovInfo.space = s.viewSpace;
++            XrViewState fovState{XR_TYPE_VIEW_STATE};
++            uint32_t fovCount = 0;
++            if (XR_SUCCEEDED(s.xr.xrLocateViews(s.session, &fovInfo, &fovState, 2, &fovCount, s.views.data())) &&
++                fovCount == 2 && symmetricFovDegrees(s.views[0].fov, s.views[1].fov, s.locatedFovDegrees)) {
++                s.locatedFovValid = true;
++                OVP_LOG("FOV located before tracking: %.2f x %.2f degrees (view state 0x%llx)", s.locatedFovDegrees[0],
++                        s.locatedFovDegrees[1], (unsigned long long)fovState.viewStateFlags);
++                saveLiveFov();
++            }
++        }
++        const bool located = visible &&
++            xrOk(s.xr.xrLocateSpace(s.viewSpace, s.localSpace, s.frame.predictedDisplayTime, &head), "initial eye-level origin");
++        static int logged;
++        if (visible && logged++ % 90 == 0)
++            OVP_LOG("initial recenter: head flags=0x%llx pos=%.3f,%.3f,%.3f", (unsigned long long)head.locationFlags,
++                    head.pose.position.x, head.pose.position.y, head.pose.position.z);
++        // OVP_HEADLESS_TEST=1: automated tests without a worn headset (the session never becomes visible) start from
++        // an untracked origin instead of waiting for a tracked head
++        static const bool headlessTest = getenv("OVP_HEADLESS_TEST") != nullptr;
++        if (headlessTest && (!located || (head.locationFlags & tracked) != tracked)) {
++            head.pose.orientation = {0, 0, 0, 1};
++            head.pose.position = {0, 0, 0};
++            head.locationFlags = tracked;
++            OVP_LOG("initial recenter: OVP_HEADLESS_TEST, no tracked head needed");
++        } else if (!located || (head.locationFlags & tracked) != tracked) {
+             endFrame(nullptr, 0);
+             return false;
+         }
+@@ -263,17 +415,32 @@
+             return false;
+         }
+         const XrPosef origin{{0, std::sin(yaw/2), 0, std::cos(yaw/2)}, p};
+-        XrSpace next = XR_NULL_HANDLE;
+-        if (!referenceSpace(XR_REFERENCE_SPACE_TYPE_LOCAL, origin, next)) {
++        if (!appSpaceFor(origin)) {
+             endFrame(nullptr, 0);
+             return false;
+         }
+-        s.xr.xrDestroySpace(s.appSpace);
+-        s.appSpace = next;
+-        s.centerEyeTransform = s.trackingTransform = fromXrPose(origin);
+         s.initialRecenterPending = false;
++        s.recenterPending = false;  // the origin was just taken from the head
+         ++s.recenterCount;
+     }
++    if (s.recenterPending && s.frame.predictedDisplayTime >= s.recenterTime) {
++        // A later recenter: same origin as the first (head yaw + position in LOCAL), but without a tracked head the
++        // frame goes on with the old origin and the next frame tries again
++        XrSpaceLocation head{XR_TYPE_SPACE_LOCATION};
++        constexpr XrSpaceLocationFlags valid = XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT;
++        if (XR_SUCCEEDED(s.xr.xrLocateSpace(s.viewSpace, s.localSpace, s.frame.predictedDisplayTime, &head)) &&
++            (head.locationFlags & valid) == valid) {
++            const auto& q = head.pose.orientation;
++            const auto& p = head.pose.position;
++            const float yaw = std::atan2(2*(q.w*q.y + q.x*q.z), 1-2*(q.x*q.x+q.y*q.y));
++            if (std::isfinite(yaw) && std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z) &&
++                appSpaceFor(XrPosef{{0, std::sin(yaw/2), 0, std::cos(yaw/2)}, p})) {
++                s.recenterPending = false;
++                ++s.recenterCount;
++                OVP_LOG("recentered: head yaw %.1f deg in LOCAL, pos=%.3f,%.3f,%.3f", yaw * 57.29578f, p.x, p.y, p.z);
++            }
++        }
++    }
+     XrViewLocateInfo info{XR_TYPE_VIEW_LOCATE_INFO};
+     info.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+     info.displayTime = s.frame.predictedDisplayTime;
+@@ -286,6 +453,7 @@
+     }
+     s.locatedFovValid = symmetricFovDegrees(
+         s.views[0].fov, s.views[1].fov, s.locatedFovDegrees);
++    saveLiveFov();
+     input::sync();
+     return true;
+ }
+@@ -409,11 +577,14 @@
+ VRAPI int vrapi_Initialize(const ovrInitParms* parms) {
+     LOCK_STATE;
+     if (s.instance) return -3;
+-    if (!parms || parms->Type != 1 || parms->GraphicsAPI != 0x40100 || !parms->Java.Vm || !parms->Java.Env || !parms->Java.ActivityObject) {
+-        OVP_ERROR("Initialization requires Vulkan 1.x, arm64, and a valid Android activity");
++    // VRAPI_GRAPHICS_API_VULKAN_1 = 0x40100, OPENGL_ES_2 = 0x10200, OPENGL_ES_3 = 0x10300.
++    const bool glesApi = parms && (parms->GraphicsAPI == 0x10200 || parms->GraphicsAPI == 0x10300);
++    if (!parms || parms->Type != 1 || (parms->GraphicsAPI != 0x40100 && !glesApi) || !parms->Java.Vm || !parms->Java.Env || !parms->Java.ActivityObject) {
++        OVP_ERROR("Initialization requires Vulkan 1.x or OpenGL ES, arm64, and a valid Android activity");
+         return -1;
+     }
+     s.vm = parms->Java.Vm;
++    s.gles = glesApi;
+     s.activity = parms->Java.Env->NewGlobalRef(parms->Java.ActivityObject);
+     if (!s.activity) { shutdown(); return -1; }
+     s.loader = dlopen("libopenxr_loader.so", RTLD_NOW | RTLD_LOCAL);
+@@ -435,10 +606,13 @@
+     if (!xrOk(s.xr.xrEnumerateInstanceExtensionProperties(nullptr, count, &count, supported.data()), "enumerate extensions")) { shutdown(); return -4; }
+     auto has = [&](const char* name) { return std::any_of(supported.begin(), supported.end(), [&](const auto& e) { return std::strcmp(e.extensionName, name) == 0; }); };
+     std::vector<const char*> extensions;
+-    for (const char* required : {XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME, XR_KHR_VULKAN_ENABLE_EXTENSION_NAME}) {
+-        if (!has(required)) { OVP_ERROR("Required OpenXR extension missing: %s", required); shutdown(); return -4; }
+-        extensions.push_back(required);
+-    }
++    if (!has(XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME)) { OVP_ERROR("Required OpenXR extension missing: %s", XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME); shutdown(); return -4; }
++    extensions.push_back(XR_KHR_ANDROID_CREATE_INSTANCE_EXTENSION_NAME);
++    s.vulkanExtension = has(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
++    if (s.vulkanExtension) extensions.push_back(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
++    s.glesExtension = has(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
++    if (s.glesExtension) extensions.push_back(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
++    if (!s.vulkanExtension) { OVP_ERROR("Required OpenXR extension missing: %s", XR_KHR_VULKAN_ENABLE_EXTENSION_NAME); shutdown(); return -4; }
+     s.viewConfigurationFovExtension = has(XR_EPIC_VIEW_CONFIGURATION_FOV_EXTENSION_NAME);
+     if (s.viewConfigurationFovExtension) extensions.push_back(XR_EPIC_VIEW_CONFIGURATION_FOV_EXTENSION_NAME);
+     s.systemDisplayRefreshRateExtension = has(SystemDisplayRefreshRateExtension);
+@@ -474,6 +648,7 @@
+         symmetricFovDegrees(s.viewConfigFov[0].recommendedFov,
+                             s.viewConfigFov[1].recommendedFov,
+                             s.recommendedFovDegrees);
++    if (!s.recommendedFovValid) loadSavedFov();
+     s.colorSpaceExtension = has(XR_FB_COLOR_SPACE_EXTENSION_NAME);
+     s.performanceExtension = has(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME);
+     s.threadExtension = has(XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME);
+@@ -482,7 +657,9 @@
+     if (s.threadExtension) load("xrSetAndroidApplicationThreadKHR", reinterpret_cast<PFN_xrVoidFunction*>(&s.setThread));
+     if (s.systemDisplayRefreshRateExtension) load("xrGetSystemDisplayRefreshRateAXRB", reinterpret_cast<PFN_xrVoidFunction*>(&s.getSystemDisplayRefreshRate));
+     if (s.displayRefreshRateExtension) load("xrGetDisplayRefreshRateFB", reinterpret_cast<PFN_xrVoidFunction*>(&s.getDisplayRefreshRate));
+-    OVP_LOG("Initialized Vulkan/OpenXR adapter, stereo=%ux%u", s.viewConfig[0].recommendedImageRectWidth, s.viewConfig[0].recommendedImageRectHeight);
++    if (s.displayRefreshRateExtension) load("xrRequestDisplayRefreshRateFB", reinterpret_cast<PFN_xrVoidFunction*>(&s.requestDisplayRefreshRate));
++    if (s.glesExtension) load("xrGetOpenGLESGraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&s.getGlesRequirements));
++    OVP_LOG("Initialized Vulkan/GLES OpenXR adapter (gles=%d), stereo=%ux%u", s.glesExtension ? 1 : 0, s.viewConfig[0].recommendedImageRectWidth, s.viewConfig[0].recommendedImageRectHeight);
+     return 0;
+ }
+ VRAPI void vrapi_Shutdown() { LOCK_STATE; shutdown(); }
+@@ -518,18 +695,51 @@
+ }
+ VRAPI ovrMobile* vrapi_EnterVrMode(const ovrModeParms* parms) {
+     LOCK_STATE;
+-    if (!parms || !s.vk.Device || s.inVr) return nullptr;
+-    const auto* vk = reinterpret_cast<const ovrModeParmsVulkan*>(parms);
+-    if (!ensureSession(reinterpret_cast<VkQueue>(vk->SynchronizationQueue))) return nullptr;
++    if (!parms || s.inVr) return nullptr;
++    VkQueue queue = VK_NULL_HANDLE;
++    if (s.vk.Device) {
++        queue = reinterpret_cast<VkQueue>(reinterpret_cast<const ovrModeParmsVulkan*>(parms)->SynchronizationQueue);
++    } else {
++        // GLES application: ovrModeParms carries its EGLDisplay and context.
++        s.gles = true;
++        EGLDisplay display = reinterpret_cast<EGLDisplay>(parms->Display);
++        EGLContext context = reinterpret_cast<EGLContext>(parms->ShareContext);
++        if (display == EGL_NO_DISPLAY) display = eglGetCurrentDisplay();
++        if (context == EGL_NO_CONTEXT) context = eglGetCurrentContext();
++        if (s.session && s.running && display == s.eglDisplay && context == s.eglContext) {
++            // re-entry with the context of the session vrapi_LeaveVrMode kept (see there)
++            ++s.mobile.generation;
++            s.inVr = true;
++            OVP_LOG("Entered VR mode again (kept GLES session)");
++            return &s.mobile;
++        }
++        if (s.session) destroySession();  // another context: a new session
++        s.eglDisplay = display;
++        s.eglContext = context;
++        EGLint configId = 0, count = 0;
++        eglQueryContext(s.eglDisplay, s.eglContext, EGL_CONFIG_ID, &configId);
++        // EGL_KHR_no_config_context (Unity 2019): the context has no config (id 0); use the window's, else RGBA8 ES3
++        EGLSurface drawn = eglGetCurrentContext() == s.eglContext ? eglGetCurrentSurface(EGL_DRAW) : EGL_NO_SURFACE;
++        if (!configId && drawn != EGL_NO_SURFACE) eglQuerySurface(s.eglDisplay, drawn, EGL_CONFIG_ID, &configId);
++        const EGLint byId[] = {EGL_CONFIG_ID, configId, EGL_NONE};
++        const EGLint rgba8[] = {EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_ALPHA_SIZE, 8,
++                                EGL_RENDERABLE_TYPE, 0x40 /* EGL_OPENGL_ES3_BIT */, EGL_NONE};
++        if (!eglChooseConfig(s.eglDisplay, configId ? byId : rgba8, &s.eglConfig, 1, &count) || count != 1) {
++            OVP_ERROR("EnterVrMode(GLES): could not resolve the context's EGLConfig");
++            return nullptr;
++        }
++        OVP_LOG("EnterVrMode(GLES): display=%p context=%p config id=%d", s.eglDisplay, s.eglContext, configId);
++    }
++    if (!ensureSession(queue)) return nullptr;
+     // Runtime READY can arrive asynchronously. Wait only for a bounded lifecycle transition.
+-    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
++    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);  // Frame: session reaches FOCUSED and first tracked pose later than Quest
+     while (!s.running) {
+-        if (!pollEvents() || std::chrono::steady_clock::now() >= deadline) { destroySession(); return nullptr; }
++        if (!pollEvents() || std::chrono::steady_clock::now() >= deadline) { OVP_LOG("EnterVrMode: session never started running"); destroySession(); return nullptr; }
+         if (!s.running) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+     }
+     while (s.initialRecenterPending) {
+         if (beginFrame(s.frameIndex + 1)) break;
+-        if (std::chrono::steady_clock::now() >= deadline) { destroySession(); return nullptr; }
++        if (std::chrono::steady_clock::now() >= deadline) { OVP_LOG("EnterVrMode: no tracked head pose before deadline"); destroySession(); return nullptr; }
+         std::this_thread::sleep_for(std::chrono::milliseconds(5));
+     }
+     ++s.mobile.generation;
+@@ -539,7 +749,19 @@
+ }
+ VRAPI void vrapi_LeaveVrMode(ovrMobile* mobile) {
+     LOCK_STATE;
+-    if (validMobile(mobile)) { destroySession(); OVP_LOG("Left VR mode"); }
++    if (!validMobile(mobile)) return;
++    if (s.gles && s.running) {
++        // GLES: the Frame's runtime aborts (CSharedSemaphoreLinux::WaitFromGPU in the GL binding's PreBeginFrame)
++        // on the first frame of a second session created on the same GL context, which Unreal's Gear VR code does
++        // when it leaves VR mode after loading and enters again (Gunjack). Keep the session; the next
++        // vrapi_EnterVrMode with the same context reuses it, another context replaces it.
++        if (s.frameBegun) endFrame(nullptr, 0);
++        s.inVr = false;
++        OVP_LOG("Left VR mode (GLES session kept for re-entry)");
++        return;
++    }
++    destroySession();
++    OVP_LOG("Left VR mode");
+ }
+ VRAPI double vrapi_GetPredictedDisplayTime(ovrMobile* mobile, int64_t index) {
+     LOCK_STATE;
+@@ -573,10 +795,18 @@
+     if (!validMobile(mobile)) return result;
+     if (which == 1) return s.trackingTransform;
+     if (which == 2) return s.centerEyeTransform;
+-    if (which == 3 && s.stageSpace) {
++    if (which == 3) {
+         if (!s.frameBegun && !beginFrame(s.frameIndex + 1)) return result;
++        // Same floor origin as appSpaceFor: a runtime STAGE floor, else 1.6 m below the eye origin.
++        // Older OVRPlugin changes its origin via GetTrackingTransform(3)/SetTrackingTransform,
++        // so an identity fallback here silently puts a floor-level camera at eye level.
++        result = fromXrPose(s.eyeOrigin);
++        result.Position.y -= 1.6f;
+         XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
+-        if (xrOk(s.xr.xrLocateSpace(s.stageSpace, s.localSpace, s.frame.predictedDisplayTime, &location), "floor transform") && (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)) return fromXrPose(location.pose);
++        if (s.stageSpace && xrOk(s.xr.xrLocateSpace(s.stageSpace, s.localSpace, s.frame.predictedDisplayTime, &location), "floor transform") &&
++            (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)) {
++            return fromXrPose(location.pose);
++        }
+     }
+     return result;
+ }
+@@ -607,7 +837,12 @@
+         case 128: return 1; // Stereo array texture path.
+         case 129: return 1; // sRGB VkFormats retain their color encoding.
+         case 130: return 0; // No foveation image implementation is advertised.
+-        default: OVP_LOG("Unsupported integer system property %d", property); return 0;
++        default: {
++            static bool seen[256]; // once per property: some games ask every frame
++            if (property < 0 || property >= 256 || !std::exchange(seen[property], true))
++                OVP_LOG("Unsupported integer system property %d", property);
++            return 0;
++        }
+     }
+ }
+ VRAPI float vrapi_GetSystemPropertyFloat(const ovrJava*, int property) {
+@@ -615,10 +850,20 @@
+     if (property == 4) return queryDisplayRefreshRate();
+     if (property == 7 || property == 8) {
+         const size_t axis = static_cast<size_t>(property - 7);
+-        // Live optical FOV supersedes a provisional startup recommendation.
+-        if (s.locatedFovValid) return s.locatedFovDegrees[axis];
+-        if (s.recommendedFovValid) return s.recommendedFovDegrees[axis];
+-        return 90.0f;
++        // Live optical FOV supersedes a provisional startup recommendation; before any session (no runtime
++        // recommendation): the live FOV saved by an earlier session, else 90 degrees.
++        static const char* const sources[] = {"live", "runtime recommendation", "saved by an earlier session",
++                                              "default, nothing known before tracking"};
++        int source = 3;
++        std::array<float, 2> fov{90.0f, 90.0f};
++        if (s.locatedFovValid) { source = 0; fov = s.locatedFovDegrees; }
++        else if (s.recommendedFovValid) { source = 1; fov = s.recommendedFovDegrees; }
++        else if (s.savedFovValid) { source = 2; fov = s.savedFovDegrees; }
++        if (source != s.loggedFovSource) {
++            s.loggedFovSource = source;
++            OVP_LOG("FOV properties: %.2f x %.2f degrees (%s)", fov[0], fov[1], sources[source]);
++        }
++        return fov[axis];
+     }
+     OVP_LOG("Unsupported float system property %d", property);
+     return 0;
+@@ -626,7 +871,9 @@
+ VRAPI int vrapi_GetSystemStatusInt(const ovrJava*, int status) {
+     LOCK_STATE;
+     if (status == 0) return s.instance != XR_NULL_HANDLE;
+-    if (status == 1) return s.sessionState == XR_SESSION_STATE_FOCUSED;
++    // MOUNTED; OVP_HEADLESS_TEST: also without a worn headset (Unreal's Gear VR code leaves VR mode when unmounted)
++    static const bool headlessTest = getenv("OVP_HEADLESS_TEST") != nullptr;
++    if (status == 1) return s.sessionState == XR_SESSION_STATE_FOCUSED || (headlessTest && s.running);
+     if (status == 13) return static_cast<int>(s.recenterCount);
+     if (status == 14) return s.running && s.sessionState != XR_SESSION_STATE_FOCUSED;
+     if (status == 130) return 1;
+@@ -665,3 +912,52 @@
+     if (!s.setColorSpace) return color->ColorSpace == 0 ? Success : Unsupported;
+     return xrOk(s.setColorSpace(s.session, static_cast<XrColorSpaceFB>(color->ColorSpace)), "xrSetColorSpaceFB") ? Success : InvalidParameter;
+ }
++
++VRAPI ovrResult vrapi_SetTrackingSpace(ovrMobile* mobile, int32_t space) {
++    // LOCAL (0, eye level) and LOCAL_FLOOR/STAGE (1/3, origin on the floor: e.g. Unity's floor-level tracking origin,
++    // else the player stands in the ground); other spaces stay eye level. VrApi returns an ovrResult here: a void
++    // function left the caller reading whatever was in w0.
++    LOCK_STATE;
++    if (!validMobile(mobile)) return NotInitialized;
++    const int32_t wanted = space == 1 || space == 3 ? space : 0;
++    OVP_LOG("vrapi_SetTrackingSpace(%d)%s", space, wanted == space ? "" : ": eye level");
++    if (wanted == s.trackingSpace) return Success;
++    s.trackingSpace = wanted;
++    // before the first recenter, that recenter applies it
++    if (!s.initialRecenterPending && !appSpaceFor(s.eyeOrigin)) return InvalidOperation;
++    return Success;
++}
++VRAPI bool vrapi_ShowSystemUI(const ovrJava* java, int32_t type) {
++    (void)java;
++    OVP_LOG("vrapi_ShowSystemUI(%d) unsupported", type);
++    return false;
++}
++
++// Functions some engines import even when they never rely on them (e.g. BlazeRush's libtargemapp.so): a missing one
++// stops the game from loading at all ("cannot locate symbol").
++VRAPI ovrResult vrapi_PollEvent(ovrEventHeader* event) {
++    // No VrApi events are produced: VRAPI_EVENT_NONE + ovrSuccess_EventUnavailable ends the app's polling loop.
++    if (event) event->EventType = 0;
++    return 1002;  // ovrSuccess_EventUnavailable
++}
++VRAPI void vrapi_RecenterPose(ovrMobile* mobile) {
++    // Deprecated in VrApi, but older games call it. OpenXR has no application recenter: the app space's origin is
++    // taken from the head again at the next frame (as for the runtime's own recenter; both count in status 13).
++    LOCK_STATE;
++    if (!validMobile(mobile)) return;
++    s.recenterPending = true;
++    s.recenterTime = 0;
++    OVP_LOG("vrapi_RecenterPose");
++}
++VRAPI ovrResult vrapi_SetDisplayRefreshRate(ovrMobile* mobile, float rate) {
++    LOCK_STATE;
++    if (!validMobile(mobile)) return NotInitialized;
++    if (!s.requestDisplayRefreshRate || !s.session) return Unsupported;
++    return xrOk(s.requestDisplayRefreshRate(s.session, rate), "xrRequestDisplayRefreshRateFB") ? Success : InvalidParameter;
++}
++VRAPI int vrapi_GetSystemPropertyFloatArray(const ovrJava*, int property, float* values, int count) {
++    // The only array property is the supported refresh rates; its count property is 0 here, so report none.
++    (void)values;
++    OVP_LOG("Float array system property %d (%d values) unsupported", property, count);
++    return 0;
++}
