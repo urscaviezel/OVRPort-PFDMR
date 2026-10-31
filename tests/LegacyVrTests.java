@@ -19,11 +19,14 @@ public class LegacyVrTests {
   String once=doc.toString();LauncherEntryPatchKt.ensureLegacyVrEntry(doc);check(once.equals(doc.toString()),"repatch does not duplicate VR filter");
   var deep=node("activity",filter("android.intent.action.VIEW",INFO));var normal=node("activity",filter(MAIN,"android.intent.category.LAUNCHER"));
   var have=node("activity",filter(MAIN,INFO),filter(MAIN,VR));
-  var others=node("document",node("manifest",node("application",deep,normal,have)));String before=others.toString();
-  LauncherEntryPatchKt.ensureLegacyVrEntry(others);check(before.equals(others.toString()),"deep links, normal launcher and existing VR entry unchanged");
+  var others=node("document",node("manifest",node("application",deep,normal,have)));String before=deep.toString()+normal.toString();
+  LauncherEntryPatchKt.ensureLegacyVrEntry(others);check(before.equals(deep.toString()+normal.toString()),"deep links and normal launcher unchanged");
+  var vrNodes=have.getJSONArray("nodes").getJSONObject(1).getJSONArray("nodes");boolean launcher=false;for(int i=0;i<vrNodes.length();i++)if(vrNodes.getJSONObject(i).toString().contains("android.intent.category.LAUNCHER"))launcher=true;
+  check(launcher,"existing INFO plus VR gains normal launcher on same activity");
+  String repaired=others.toString();LauncherEntryPatchKt.ensureLegacyVrEntry(others);check(repaired.equals(others.toString()),"existing VR launcher repair idempotent");
  }
  public static void main(String[] args)throws Exception{
-  synthetic();Path cache=Path.of(args[0]);var ctx=new PatcherContext("3.4.3-aa54c3f",cache.toFile(),"Vader.apk","{filename}.Fixed.{ext}");
+  synthetic();if(args.length==0){System.out.println("ALL "+n+" SYNTHETIC LEGACY VR CHECKS PASSED");return;}Path cache=Path.of(args[0]);var ctx=new PatcherContext("3.4.3-aa54c3f",cache.toFile(),"Vader.apk","{filename}.Fixed.{ext}");
   try(var in=Files.newInputStream(Path.of(args[1]))){ctx.prepare(in);}
   ctx.patch(Map.of(QuestGatePatch.ID,List.of()),(i,p)->kotlin.Unit.INSTANCE);
   Path out=Path.of(args[2]);try(var stream=Files.newOutputStream(out)){ctx.export(stream);}

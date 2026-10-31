@@ -25,7 +25,7 @@ fun createCategory(value: String): JSONObject {
     )
 }
 
-/** Preserve legacy MAIN/INFO entries and add the PFDMR VR category separately. */
+/** Preserve legacy MAIN/INFO and expose the same game activity to VR and Android launchers. */
 fun ensureLegacyVrEntry(manifest: JSONObject?) {
     manifest.takeNodesEach({ named("manifest") }) {
         takeNodesEach({ named("application") }) {
@@ -36,13 +36,19 @@ fun ensureLegacyVrEntry(manifest: JSONObject?) {
                     return entries.any { it.named("action") && it.nameAttribute() == "android.intent.action.MAIN" } &&
                         entries.any { it.named("category") && it.nameAttribute() == category }
                 }
-                if (filters.any { it.hasEntry("android.intent.category.INFO") } &&
-                    filters.none { it.hasEntry("com.yvr.intent.category.VR") }) {
-                    takeNodes {
-                        (this ?: JSONArray()).put(JSONObject().put("node_type", "element")
-                            .put("name", "intent-filter").put("nodes", JSONArray()
-                                .put(createAction("android.intent.action.MAIN"))
-                                .put(createCategory("com.yvr.intent.category.VR"))))
+                if (filters.any { it.hasEntry("android.intent.category.INFO") }) {
+                    val hasLauncher = filters.any { it.hasEntry("android.intent.category.LAUNCHER") }
+                    val vrFilter = filters.firstOrNull { it.hasEntry("com.yvr.intent.category.VR") }
+                    if (vrFilter == null) {
+                        val entries = JSONArray().put(createAction("android.intent.action.MAIN"))
+                            .put(createCategory("com.yvr.intent.category.VR"))
+                        if (!hasLauncher) entries.put(createCategory("android.intent.category.LAUNCHER"))
+                        takeNodes {
+                            (this ?: JSONArray()).put(JSONObject().put("node_type", "element")
+                                .put("name", "intent-filter").put("nodes", entries))
+                        }
+                    } else if (!hasLauncher) {
+                        vrFilter.getJSONArray("nodes").put(createCategory("android.intent.category.LAUNCHER"))
                     }
                 }
                 this

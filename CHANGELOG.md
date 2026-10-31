@@ -1,5 +1,7 @@
 # 0.1.0-beta.12 (local test build)
 
+- Added the normal launcher entry for legacy MAIN/INFO VR apps so their installed icon can appear in the headset menu.
+
 - Added optional local and on-demand GitHub icon cache support; fixed WebP conversion and round launcher icons.
 
 - Climb controller-pose trial: use native OpenXR grip pose without the legacy Touch transform.

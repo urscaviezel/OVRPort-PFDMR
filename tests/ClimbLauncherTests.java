@@ -1,0 +1,19 @@
+import java.nio.file.*;import java.util.*;import java.util.zip.*;
+import moe.crx.overport.patching.*;import moe.crx.overport.patches.LauncherEntryPatchKt;import com.reandroid.json.*;
+public class ClimbLauncherTests {
+ static int n;static void check(boolean b,String s){if(!b)throw new AssertionError(s);System.out.println("PASS "+s);n++;}
+ static List<Set<String>> filters(JSONObject doc){List<Set<String>> result=new ArrayList<>();walk(doc,result);return result;}
+ static void walk(JSONObject doc,List<Set<String>> result){if("intent-filter".equals(doc.optString("name"))){Set<String> names=new HashSet<>();JSONArray entries=doc.getJSONArray("nodes");for(int i=0;i<entries.length();i++){JSONArray attrs=entries.getJSONObject(i).optJSONArray("attributes");if(attrs!=null)for(int j=0;j<attrs.length();j++)if("name".equals(attrs.getJSONObject(j).optString("name")))names.add(attrs.getJSONObject(j).optString("data"));}result.add(names);}JSONArray nodes=doc.optJSONArray("nodes");if(nodes!=null)for(int i=0;i<nodes.length();i++){JSONObject child=nodes.optJSONObject(i);if(child!=null)walk(child,result);}}
+ static final String MAIN="android.intent.action.MAIN",INFO="android.intent.category.INFO",LAUNCHER="android.intent.category.LAUNCHER",VR="com.yvr.intent.category.VR";
+ public static void main(String[] args)throws Exception{
+  Path run=Path.of(args[0]),input=Path.of(args[1]);var c=new PatcherContext("3.4.3-aa54c3f",run.resolve("cache").toFile(),"Climb.apk","{filename}.{ext}");try(var in=Files.newInputStream(input)){c.prepare(in);}Path mf=c.getWorkingDir().toPath().resolve("AndroidManifest.xml.json");JSONObject before=new JSONObject(Files.readString(mf));var old=filters(before);
+  check(old.stream().anyMatch(f->f.containsAll(Set.of(MAIN,INFO)))&&old.stream().noneMatch(f->f.contains(LAUNCHER)),"real Climb input reproduces INFO/VR-only launcher");
+  var executor=new PatchExecutor(run.toFile(),c.getWorkingDir(),c.getWorkingApk());LauncherEntryPatchKt.getPATCH_LAUNCHER_ENTRY().getExecutor().invoke(executor,List.of());JSONObject after=new JSONObject(Files.readString(mf));var updated=filters(after);
+  check(updated.stream().anyMatch(f->f.equals(Set.of(MAIN,INFO))),"original MAIN/INFO filter preserved");
+  check(updated.stream().anyMatch(f->f.containsAll(Set.of(MAIN,VR,LAUNCHER))),"same activity exposes MAIN/LAUNCHER and VR");
+  String once=after.toString();LauncherEntryPatchKt.getPATCH_LAUNCHER_ENTRY().getExecutor().invoke(executor,List.of());check(once.equals(new JSONObject(Files.readString(mf)).toString()),"launcher repair idempotent");
+  Path output=run.resolve("Climb-launcher-fixed.apk");c.exportAndClose(Files.newOutputStream(output));check(new com.android.apksig.ApkVerifier.Builder(output.toFile()).build().verify().isVerified(),"fixed APK signature valid");c.cleanup();try(var in=Files.newInputStream(output)){c.prepare(in);}var roundtrip=filters(new JSONObject(Files.readString(mf)));check(roundtrip.stream().anyMatch(f->f.containsAll(Set.of(MAIN,VR,LAUNCHER))),"launcher entry survives signed reimport");check(c.getWorkingApk().getAndroidManifest().getIconResourceId()==c.getWorkingApk().getAndroidManifest().getRoundIconResourceId(),"both existing icon references retained");
+  try(var a=new ZipFile(input.toFile());var b=new ZipFile(output.toFile())){for(var entries=a.entries();entries.hasMoreElements();){var entry=entries.nextElement();String name=entry.getName();if(name.endsWith(".dex")||name.startsWith("lib/")||name.startsWith("assets/")||name.endsWith("custom_icon_ovrp.png"))if(!Arrays.equals(a.getInputStream(entry).readAllBytes(),b.getInputStream(b.getEntry(name)).readAllBytes()))throw new AssertionError("Changed payload: "+name);}}
+  check(true,"DEX, native libraries, profile receipts, assets and icon PNG byte-identical");c.cleanup();System.out.println("ALL "+n+" CLIMB LAUNCHER CHECKS PASSED");
+ }
+}
