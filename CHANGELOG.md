@@ -1,5 +1,7 @@
 # 0.1.0-beta.12 (local test build)
 
+- Corrected startup helper code loading for native-only apps; enabled the SUPERHOT storage profile for version 1.161.
+
 - Added six optional, guarded community compatibility profiles for hand mesh, legacy Unity frames, direct VrApi, platform callbacks, thread keys and app-owned storage repair. Required stereo/resolution settings are included by the matching profiles.
 
 - Generalized the optional 1800 x 1664 render-resolution label.
