@@ -1,0 +1,1 @@
+OVRPort PFDMR optional icon cache. Exact package-name mappings; no APKs or application code. The app downloads only an individual missing image and retains it locally. Source: owner-supplied website cache, staged 2026-10-31.
