@@ -1,0 +1,11 @@
+# Optional app icon cache (Beta 12)
+
+The owner-provided app_icon folder has 37,154 files, including 15,446 empty .fail markers. 21,353 images pass exact package-filename, size and image-signature checks and are staged separately under dist/icon-cache by scripts/prepare_icon_cache.py. The source folder is read-only input and ignored by Git. No image inventory is bundled into the app or its source archive.
+
+Resolution order: explicit/portable local folder, previously downloaded icon, original ovrp.crx.moe metadata service, then the dedicated icon-cache branch in urscaviezel/OVRPort-PFDMR. The branch layout is icons-index.json plus images/<package>.<extension>. The index contains size and SHA-256 per image. Only the requested package image is downloaded, verified and stored under ~/overport/app-icon-cache. The index is cached for 24 hours. Missing entries, unreachable servers and invalid responses preserve the APK icon. A folder can be chosen with Icon folder; the preference survives updates.
+
+Desktop Skia decodes WebP/JPEG/PNG and the patch emits a real 512x512 PNG, fitted without distortion. Normal and round launcher icon references are updated; activity/alias overrides are removed. Local images contain no title metadata, so APK labels are preserved. A missing preview is not cached for the remainder of the session.
+
+Publishing status: staging is local only. Before the Beta 12 release, publish dist/icon-cache as a separate orphan icon-cache branch (not master, and not a release asset). Never stage the original .fail files or game/APK data. No game files, credentials or signing keys belong on that branch. The default URL expects https://raw.githubusercontent.com/urscaviezel/OVRPort-PFDMR/icon-cache/icons-index.json. Live GitHub retrieval remains to be validated after that separate data upload.
+
+Tests: representative six WebP icons; exact package mapping; fail markers and traversal rejected; actual Vader backup icon patch and signed reimport; normal/round icon references; original native libraries and assets unchanged and disassembled DEX code compared. Remote fetcher tests use an isolated fake transport to verify per-file requests, checksums, cache reuse across restart, offline operation, missing entries, unsafe index paths and HTTPS enforcement.

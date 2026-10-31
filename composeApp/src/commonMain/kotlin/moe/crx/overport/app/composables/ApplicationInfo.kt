@@ -50,7 +50,7 @@ fun ApplicationInfo(
                 }
 
                 val info = getApplicationInfo(applicationPackage)
-                onlineLabel = info?.displayName
+                onlineLabel = info?.displayName?.takeIf { it.isNotBlank() }
 
                 val icon = info?.run {
                     val associated = images.associateBy { it.imageType }
@@ -62,11 +62,11 @@ fun ApplicationInfo(
                     associated["APP_IMG_COVER_SQUARE"] ?: associated["APP_IMG_ICON"]
                 }
 
-                val iconBitmap = icon?.uri?.let { Base64.getDecoder().decode(it) }?.decodeBitmap()
-                val coverBitmap = cover?.uri?.let { Base64.getDecoder().decode(it) }?.decodeBitmap()
+                val iconBitmap = runCatching { icon?.uri?.let { Base64.getDecoder().decode(it) }?.decodeBitmap() }.getOrNull()
+                val coverBitmap = runCatching { cover?.uri?.let { Base64.getDecoder().decode(it) }?.decodeBitmap() }.getOrNull()
 
-                iconCache[applicationPackage] = iconBitmap
-                coverCache[applicationPackage] = coverBitmap
+                if (iconBitmap != null) iconCache[applicationPackage] = iconBitmap
+                if (coverBitmap != null) coverCache[applicationPackage] = coverBitmap
 
                 onlineIcon = iconBitmap
                 onlineCover = coverBitmap

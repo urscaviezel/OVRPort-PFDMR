@@ -34,6 +34,7 @@ fun AppContent(
     saveFile: (String) -> Unit,
     openFlow: MutableSharedFlow<Pair<String, InputStream>?>,
     saveFlow: MutableSharedFlow<OutputStream?>,
+    chooseIconCache: (() -> String?)? = null,
 ) {
     OverportTheme(darkTheme = true) {
         val snackbarHostState = remember { SnackbarHostState() }
@@ -88,6 +89,14 @@ fun AppContent(
                         }
                     },
                     actions = {
+                        if (chooseIconCache != null) TextButton(
+                            enabled = !viewModel.working && !viewModel.isApkLoaded(),
+                            onClick = {
+                                val folder = chooseIconCache()
+                                if (folder != null) scope.launch { snackbarHostState.showSnackbar("Icon folder: $folder") }
+                            }
+                        ) { Text("Icon folder") }
+
                         FilledTonalButton(
                             modifier = Modifier.padding(8.dp, 0.dp),
                             enabled = !checking && !viewModel.working && !viewModel.isApkLoaded(),

@@ -36,7 +36,7 @@ val PATCH_REPLACE_ICON_LABEL = Patch("patch_replace_icon_label") { arguments ->
     createFile("root/res/drawable/custom_icon_ovrp.png") {
         val info = getApplicationInfo(applicationPackage())
 
-        gameTitle = info?.displayName
+        gameTitle = info?.displayName?.takeIf { it.isNotBlank() }
 
         val image = info?.run {
             val associated = images.associateBy { it.imageType }
@@ -48,7 +48,13 @@ val PATCH_REPLACE_ICON_LABEL = Patch("patch_replace_icon_label") { arguments ->
         }
 
         val bytes = image?.uri?.let { Base64.getDecoder().decode(it) }
-        var resizedBytes = bytes?.let { PLATFORM_ICON_RESIZER?.resize(it, 512, 512) } ?: bytes
+        val resizedBytes = bytes?.let { input ->
+            PLATFORM_ICON_RESIZER?.resize(input, 512, 512) ?: input.also {
+                require(it.size >= 8 && it[0] == 0x89.toByte() && it[1] == 'P'.code.toByte()) {
+                    "This icon requires image conversion. Use the desktop app to import WebP/JPEG icons."
+                }
+            }
+        }
 
         if (resizedBytes != null) {
             iconDownloaded = runCatching { writeBytes(resizedBytes) }.isSuccess
@@ -73,22 +79,24 @@ val PATCH_REPLACE_ICON_LABEL = Patch("patch_replace_icon_label") { arguments ->
             takeNodesEach({ named("manifest") }) {
                 takeNodesEach({ named("application") }) {
                     takeNodesEach({ named("activity") }) {
-                        takeAttributesEach({ named("icon") }) {
+                        takeAttributesEach({ named("icon") || named("roundIcon") }) {
                             null
                         }
                     }
                     takeNodesEach({ named("activity-alias") }) {
-                        takeAttributesEach({ named("icon") }) {
+                        takeAttributesEach({ named("icon") || named("roundIcon") }) {
                             null
                         }
                     }
 
-                    takeAttributesEach({ named("icon") }) {
+                    takeAttributesEach({ named("icon") || named("roundIcon") }) {
                         null
                     }
 
                     takeAttributes {
                         this?.put(createIconReference(reference))
+                        this?.put(JSONObject(createIconReference(reference).toString())
+                            .put("name", "roundIcon").put("id", 16844076))
                     }
                 }
             }

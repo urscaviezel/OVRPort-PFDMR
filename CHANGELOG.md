@@ -1,5 +1,7 @@
 # 0.1.0-beta.12 (local test build)
 
+- Added optional local and on-demand GitHub icon cache support; fixed WebP conversion and round launcher icons.
+
 - Climb controller-pose trial: use native OpenXR grip pose without the legacy Touch transform.
 
 - Corrected startup helper code loading for native-only apps; enabled the SUPERHOT storage profile for version 1.161.

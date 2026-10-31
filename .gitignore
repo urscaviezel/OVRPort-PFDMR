@@ -32,3 +32,6 @@ dist/
 *.p12
 test-work/
 overportcli/src/main/resources/pfdmr/*/*.so
+
+# External image inventory; staged separately on the icon-cache branch.
+/app_icon/

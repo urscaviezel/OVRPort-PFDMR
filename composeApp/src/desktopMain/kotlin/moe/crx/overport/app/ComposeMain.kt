@@ -19,7 +19,6 @@ import kotlinx.coroutines.launch
 import moe.crx.overport.app.composables.AppContent
 import moe.crx.overport.app.model.MainViewModel
 import moe.crx.overport.utils.DesktopUtil.defaultWorkspace
-import moe.crx.overport.utils.ImageIOIconResizer
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import overportapp.composeapp.generated.resources.Res
@@ -47,7 +46,7 @@ fun main(args: Array<String>) {
         dataDir.mkdirs()
 
         val selectFileString = stringResource(Res.string.select_a_file)
-        val viewModel: MainViewModel = viewModel { MainViewModel(dataDir, ImageIOIconResizer) }
+        val viewModel: MainViewModel = viewModel { MainViewModel(dataDir, SkiaIconResizer) }
         val openFlow = remember { MutableSharedFlow<Pair<String, InputStream>?>() }
         val saveFlow = remember { MutableSharedFlow<OutputStream?>() }
         var lastOpenedDirectory by remember { mutableStateOf("") }
@@ -132,6 +131,18 @@ fun main(args: Array<String>) {
                             saveFlow.emit(FileOutputStream(file))
                         }
                     }
+                },
+                chooseIconCache = {
+                    val dialog = SystemFileChooser("Select local icon folder").apply {
+                        fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
+                        currentDirectory = moe.crx.overport.config.LocalAppIcons.directory()
+                    }
+                    if (dialog.showOpenDialog(null) == SystemFileChooser.APPROVE_OPTION) {
+                        moe.crx.overport.config.LocalAppIcons.setDirectory(dialog.selectedFile)
+                        moe.crx.overport.app.composables.iconCache.clear()
+                        moe.crx.overport.app.composables.coverCache.clear()
+                        dialog.selectedFile.name
+                    } else null
                 },
                 openFlow = openFlow,
                 saveFlow = saveFlow,
