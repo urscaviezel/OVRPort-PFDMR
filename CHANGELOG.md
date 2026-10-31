@@ -1,20 +1,10 @@
-# 0.1.0-beta.12 (local test build)
-
-- Added the normal launcher entry for legacy MAIN/INFO VR apps so their installed icon can appear in the headset menu.
-
-- Added optional local and on-demand GitHub icon cache support; fixed WebP conversion and round launcher icons.
-
-- Climb controller-pose trial: use native OpenXR grip pose without the legacy Touch transform.
-
-- Corrected startup helper code loading for native-only apps; enabled the SUPERHOT storage profile for version 1.161.
-
-- Added six optional, guarded community compatibility profiles for hand mesh, legacy Unity frames, direct VrApi, platform callbacks, thread keys and app-owned storage repair. Required stereo/resolution settings are included by the matching profiles.
-
-- Generalized the optional 1800 x 1664 render-resolution label.
-- Initialize configuration for fresh-APK resolution patching.
-- Preserve unrelated runtime configuration fields during patch updates; reject malformed config instead of silently resetting it.
-
 # Changelog
+
+## 0.1.0-beta.12
+
+- Add optional compatibility profiles and improve controller alignment.
+- Add on-demand icon downloads and correct launcher icon handling.
+- Improve render-resolution configuration and preserve runtime extensions.
 
 ## 0.1.0-beta.11
 

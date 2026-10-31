@@ -13,6 +13,7 @@ An unofficial fork of [OVRPort](https://github.com/ovrport/app) for Play For Dre
 - Optional basic passthrough capability correction.
 - Separate optional scene and spatial compatibility; both MR options can be combined.
 - Optional compatibility profiles restricted to verified game builds.
+- Automatic per-app icon downloads with a persistent local cache.
 
 Experimental functions are disabled by default and must be tested individually for each game. Compatibility information is maintained separately on PFDhub.
 

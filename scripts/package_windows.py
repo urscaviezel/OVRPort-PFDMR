@@ -31,7 +31,7 @@ shutil.copytree(root/'third-party/frameport-1.4.0',folder/'licenses/frameport-1.
 bridge_source=folder/'licenses/frameport-1.4.0-source/native/vrapi-bridge'
 shutil.copy2(bridge_source/'input.cpp',bridge_source/'input-upstream.cpp')
 shutil.copy2(root/'native/climb-bridge/build/input.cpp',bridge_source/'input.cpp')
-(bridge_source/'PFDMR-CHANGES.txt').write_text('PFDMR Climb trial: input.cpp replaces only the legacy Touch pose (-60 degrees and translation) with identity OpenXR grip pose. input-upstream.cpp is the original source for the unmodified prebuilt. Other bridge sources are unchanged. Build using native/build.py --only bridge --ndk <NDK r27c>. OpenXR header commit: 7f9285bce1ce8b69bb75554bf788666579d0c35e. Visual validation pending.\n')
+(bridge_source/'PFDMR-CHANGES.txt').write_text('PFDMR Climb trial: input.cpp replaces only the legacy Touch pose (-60 degrees and translation) with identity OpenXR grip pose. input-upstream.cpp is the original source for the unmodified prebuilt. Other bridge sources are unchanged. Build using native/build.py --only bridge --ndk <NDK r27c>. OpenXR header commit: 7f9285bce1ce8b69bb75554bf788666579d0c35e. The user confirmed usable controller alignment; longer stability testing remains open.\n')
 
 try: commit=subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip()
 except Exception: commit='unknown'
