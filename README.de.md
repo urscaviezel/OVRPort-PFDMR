@@ -13,6 +13,7 @@ Eine inoffizielle Variante von [OVRPort](https://github.com/ovrport/app) für Pl
 - Optionale minimale Passthrough-Korrektur.
 - Separate optionale Raumdaten-/Spatial-Kompatibilität; beide MR-Optionen sind kombinierbar.
 - Optionale Kompatibilitätsprofile für geprüfte Spielversionen.
+- Automatisches Nachladen einzelner App-Icons mit dauerhaftem lokalem Cache.
 
 Experimentelle Funktionen sind standardmäßig ausgeschaltet und müssen je nach Spiel individuell getestet werden. Informationen zur Spielekompatibilität werden separat auf PFDhub gepflegt.
 
