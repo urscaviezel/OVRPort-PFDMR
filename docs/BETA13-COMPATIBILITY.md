@@ -10,7 +10,7 @@ The profile replaces only two immediate-load words in the documented signer comp
 
 PatcherContext pins the existing per-package SignerConfig before applying this profile and reuses the exact object for output. Pin resets on new input and cleanup. A small receipt stores the original eight bytes, before/after engine digests, public certificate SHA-256 and signature hash. Restore verifies all bytes by original full-engine hash before reapply/deselect. Export verifies the actual final certificate, engine digest and comparison immediates before returning APK bytes; mismatches fail the export.
 
-Initial implementation used reference data before the matching original game APK was provided. Kernel tests use a small synthetic ARM64 ELF with nonidentity VA/offset mapping and retain the production exact-hash guard. Actual APK signers, signer pinning, multi-signer rejection and final output checks are exercised using disposable signed metadata fixtures. Twenty-six signer checks pass. The actual Quest backup was subsequently validated as described below; headset gameplay remains for the owner's test. Red Matter 2 is not covered.
+Initial implementation used reference data before the matching original game APK was provided. Kernel tests use a small synthetic ARM64 ELF with nonidentity VA/offset mapping and retain the production exact-hash guard. Actual APK signers, signer pinning, multi-signer rejection and final output checks are exercised using disposable signed metadata fixtures. Twenty-six signer checks pass. The actual Quest backup was subsequently validated as described below; the owner subsequently confirmed working headset gameplay. Red Matter 2 is not covered.
 
 ## The Climb
 
@@ -23,3 +23,7 @@ Fifteen JVM app-init tests cover old behavior, opt-in, backup retention, toggle-
 ## Actual Quest-backup validation
 
 The owner supplied the 2026-11-01 Quest backup after packaging. Red Matter 1 1.0.013 / code 38 has the exact expected 187,026,672-byte engine and SHA-256 above. Eleven actual-APK checks passed using the exact packaged Beta 13 JAR: full recommended defaults plus signer profile; automatic 1800 x 1664; verified output signature and pinned certificate; changes limited to the eight signer-load bytes; all original game assets byte-identical; signed reimport/same-key reapply; exact original-engine restoration on deselect; fresh-key reapplication and verified output; source APK unchanged. Test keys and outputs are isolated under tests/build/beta13-real-redmatter, not the owner's installation/signing cache. No device installation or launch. Beta 13 binary unchanged. Red Matter 2 backup is version 1.0.021 / code 75 with a different engine digest and is not eligible for this signer profile.
+
+## Release validation
+
+The owner confirmed Red Matter 1 works and reported no further Climb errors in the short test. Extended Climb stability and Red Matter 2 testing remain open. Beta 13 is released as an experimental prerelease; the tested application JAR is unchanged.
