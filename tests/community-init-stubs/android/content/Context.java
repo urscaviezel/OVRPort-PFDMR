@@ -1,1 +1,1 @@
-package android.content; import java.io.File; public class Context { public String pkg;public File dir;public String getPackageName(){return pkg;}public File getExternalFilesDir(String s){return dir;} }
+package android.content; import java.io.File; public class Context { public String pkg;public File dir;public android.content.res.AssetManager getAssets(){return new android.content.res.AssetManager(new File(dir,"assets"));}public String getPackageName(){return pkg;}public File getExternalFilesDir(String s){return dir;} }

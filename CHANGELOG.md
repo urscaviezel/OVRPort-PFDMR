@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.13 (local test build)
+
+- Add an optional Red Matter 1 converted-signer compatibility profile with guarded rollback and final signer verification.
+- Add an optional Climb single-threaded rendering setting with app-owned configuration backup and restoration.
+
+
 ## 0.1.0-beta.12
 
 - Add optional compatibility profiles and improve controller alignment.

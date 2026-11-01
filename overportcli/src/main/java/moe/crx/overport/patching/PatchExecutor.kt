@@ -8,7 +8,8 @@ import kotlinx.serialization.json.*
 import moe.crx.overport.config.OverportConfig
 import java.io.File
 
-class PatchExecutor(private val librariesDir: File, private val workingDir: File, private val apkModule: ApkModule) {
+class PatchExecutor @JvmOverloads constructor(private val librariesDir: File, private val workingDir: File, private val apkModule: ApkModule, private val outputCertificate: ByteArray? = null) {
+    fun signingCertificate(): ByteArray = checkNotNull(outputCertificate) { "Output signer must be pinned before applying this profile" }.clone()
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
 

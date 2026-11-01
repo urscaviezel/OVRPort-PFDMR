@@ -38,6 +38,20 @@ class PatcherContext(
 
     val workingDir: File = dataDir.resolve(namespace)
     var workingApk: ApkModule? = null
+    private var pinnedSigner: ApkSigner.SignerConfig? = null
+    private var pinnedSignerPackage: String? = null
+
+    private fun outputSigner(): ApkSigner.SignerConfig {
+        val pkg = appPackage()
+        pinnedSigner?.let { check(pinnedSignerPackage == pkg); return it }
+        val dir = patcherDirectory.resolve("signatures").apply { mkdirs() }
+        return SignatureStore.getSignature(dir.resolve("$pkg.keystore")).also {
+            pinnedSigner = it
+            pinnedSignerPackage = pkg
+        }
+    }
+
+    fun outputSignerCertificate(): ByteArray = outputSigner().certificates.single().encoded.clone()
 
     fun isApkLoaded(): Boolean {
         return workingApk != null
@@ -57,6 +71,8 @@ class PatcherContext(
     }
 
     fun prepare(stream: InputStream) {
+        pinnedSigner = null
+        pinnedSignerPackage = null
         workingApk?.close()
         workingApk = null
         dataDir.mkdirs()
@@ -115,10 +131,13 @@ class PatcherContext(
         args: Map<String, List<String>>,
         callback: (Int, Patch) -> Unit = { _, _ -> }
     ) {
-        moe.crx.overport.pfdmr.CommunityProfiles.validateSelection(this, args)
-        moe.crx.overport.pfdmr.VaderAudioPatch.validateSelection(this, args)
-        moe.crx.overport.pfdmr.SpatialZombiesPatch.validateSelection(this, args)
-        moe.crx.overport.pfdmr.Pinball110Patch.validateSelection(this, args)
+        val effectiveArgs = moe.crx.overport.pfdmr.ClimbStabilityPatch.expand(args)
+        moe.crx.overport.pfdmr.RedMatterSignerPatch.validateSelection(this, effectiveArgs)
+        moe.crx.overport.pfdmr.CommunityProfiles.validateSelection(this, effectiveArgs)
+        moe.crx.overport.pfdmr.VaderAudioPatch.validateSelection(this, effectiveArgs)
+        moe.crx.overport.pfdmr.SpatialZombiesPatch.validateSelection(this, effectiveArgs)
+        moe.crx.overport.pfdmr.Pinball110Patch.validateSelection(this, effectiveArgs)
+        moe.crx.overport.pfdmr.RedMatterSignerPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.MossResolutionPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.VaderAudioPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.UnrealObbPatch.restore(workingDir.toPath())
@@ -131,8 +150,9 @@ class PatcherContext(
         moe.crx.overport.pfdmr.MrCompatibilityPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.BasicPassthroughPatch.restore(workingDir.toPath())
         moe.crx.overport.pfdmr.CommunityProfiles.restore(workingDir.toPath())
-        val mrOrdered = LinkedHashMap(moe.crx.overport.pfdmr.CommunityProfiles.expand(args))
-        if (args.containsKey(moe.crx.overport.pfdmr.SpatialZombiesPatch.ID)) {
+        moe.crx.overport.pfdmr.ClimbStabilityPatch.prepare(workingDir.toPath(), effectiveArgs.containsKey(moe.crx.overport.pfdmr.CommunityProfiles.CLIMB))
+        val mrOrdered = LinkedHashMap(moe.crx.overport.pfdmr.CommunityProfiles.expand(effectiveArgs))
+        if (effectiveArgs.containsKey(moe.crx.overport.pfdmr.SpatialZombiesPatch.ID)) {
             // The Unity profile includes the adapters and handles permissions in IL2CPP.
             mrOrdered.remove(moe.crx.overport.pfdmr.MrCompatibilityPatch.ID)
         }
@@ -154,6 +174,9 @@ class PatcherContext(
         for (id in moe.crx.overport.pfdmr.CommunityProfiles.IDS) {
             mrOrdered.remove(id)?.let { mrOrdered[id] = it }
         }
+        mrOrdered.remove(moe.crx.overport.pfdmr.RedMatterSignerPatch.ID)?.let {
+            mrOrdered[moe.crx.overport.pfdmr.RedMatterSignerPatch.ID] = it
+        }
         val orderedArgs = LinkedHashMap(moe.crx.overport.pfdmr.StereoPatch.prepare(this, mrOrdered))
         orderedArgs.remove(moe.crx.overport.pfdmr.RefreshRatePatch.ID)?.let {
             orderedArgs[moe.crx.overport.pfdmr.RefreshRatePatch.ID] = it
@@ -161,13 +184,14 @@ class PatcherContext(
         orderedArgs.remove(moe.crx.overport.pfdmr.MossResolutionPatch.ID)?.let {
             orderedArgs[moe.crx.overport.pfdmr.MossResolutionPatch.ID] = it
         }
-        moe.crx.overport.pfdmr.UnrealAudioPatch.prepare(workingDir.toPath(), args.containsKey(moe.crx.overport.pfdmr.UnrealAudioPatch.ID))
+        moe.crx.overport.pfdmr.UnrealAudioPatch.prepare(workingDir.toPath(), effectiveArgs.containsKey(moe.crx.overport.pfdmr.UnrealAudioPatch.ID))
         val patches = orderedArgs.keys.mapNotNull { PatchStore.get(it) }
         val needsConfig = patches.any { it.requiresOverportConfig }
         val librariesDir = if (needsConfig) VersionManager(patcherDirectory).getLibraries(overportVersion)
             else patcherDirectory.resolve("libraries/manifest-only").apply { mkdirs() }
 
-        val executor = PatchExecutor(librariesDir, workingDir, apk())
+        val certificate = if (effectiveArgs.containsKey(moe.crx.overport.pfdmr.RedMatterSignerPatch.ID)) outputSignerCertificate() else null
+        val executor = PatchExecutor(librariesDir, workingDir, apk(), certificate)
 
 
         // Render-size profile may run on a fresh APK without an embedded Frida config.
@@ -176,7 +200,7 @@ class PatcherContext(
         }
         patches.forEachIndexed { index, patch ->
             callback(index, patch)
-            patch.executor(executor, args[patch.name] ?: listOf())
+            patch.executor(executor, effectiveArgs[patch.name] ?: listOf())
         }
 
         if (needsConfig) executor.selectConfig {
@@ -193,6 +217,7 @@ class PatcherContext(
     }
 
     fun export(stream: OutputStream) {
+        val signature = outputSigner()
         val encoder = ApkModuleJsonEncoder().apply {
             dexEncoder = DexEncoder { _, dir ->
                 dir
@@ -224,13 +249,6 @@ class PatcherContext(
             } finally { close() }
         }
 
-        val signatureDir = patcherDirectory.resolve("signatures")
-        signatureDir.mkdirs()
-        val signature = appPackage()
-            .plus(".keystore")
-            .let { signatureDir.resolve(it) }
-            .let { SignatureStore.getSignature(it) }
-
         val tempFile = outputApk
             .parentFile
             ?.resolve(outputApk.name + ".temp")
@@ -250,10 +268,13 @@ class PatcherContext(
 
         tempFile?.delete()
 
+        moe.crx.overport.pfdmr.RedMatterSignerPatch.verifyOutput(workingDir.toPath(), outputApk.toPath(), outputSignerCertificate())
         Files.copy(outputApk.toPath(), stream)
     }
 
     fun cleanup() {
+        pinnedSigner = null
+        pinnedSignerPackage = null
         workingApk?.close()
         workingApk = null
         workingDir.deleteRecursively()
